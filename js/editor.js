@@ -84,26 +84,48 @@
 
   // 加载数据
   function loadData() {
-    if (typeof GUIDE_DATA !== 'undefined') {
+    // 优先从 localStorage 加载已编辑的数据
+    const saved = localStorage.getItem('chaozhou-guide-data');
+    if (saved) {
+      try {
+        state.data = JSON.parse(saved);
+        console.log('📦 从 localStorage 加载数据，共', state.data.points.length, '个故事点');
+      } catch (e) {
+        console.error('localStorage 数据损坏，使用默认数据');
+        loadDefaultData();
+      }
+    } else if (typeof GUIDE_DATA !== 'undefined') {
       state.data = JSON.parse(JSON.stringify(GUIDE_DATA));
+      console.log('📄 从 points.js 加载数据，共', state.data.points.length, '个故事点');
     } else {
-      state.data = {
-        hotel: { name: '潮州古城有熊酒店', nameEn: '', description: '', totalPoints: 0 },
-        categories: [
-          { id: 'history', name: '历史人文', color: '#8B4513' },
-          { id: 'architecture', name: '建筑空间', color: '#556B2F' },
-          { id: 'craft', name: '传统工艺', color: '#B8860B' },
-          { id: 'art', name: '艺术作品', color: '#4682B4' },
-          { id: 'furniture', name: '设计家具', color: '#708090' },
-          { id: 'tea', name: '茶文化', color: '#2E8B57' }
-        ],
-        points: [],
-        routes: []
-      };
+      loadDefaultData();
     }
     state.points = state.data.points;
     state.categories = state.data.categories;
     updateTotalCount();
+  }
+
+  function loadDefaultData() {
+    state.data = {
+      hotel: { name: '潮州古城有熊酒店', nameEn: '', description: '', totalPoints: 0 },
+      categories: [
+        { id: 'history', name: '历史人文', color: '#8B4513' },
+        { id: 'architecture', name: '建筑空间', color: '#556B2F' },
+        { id: 'craft', name: '传统工艺', color: '#B8860B' },
+        { id: 'art', name: '艺术作品', color: '#4682B4' },
+        { id: 'furniture', name: '设计家具', color: '#708090' },
+        { id: 'tea', name: '茶文化', color: '#2E8B57' }
+      ],
+      points: [],
+      routes: []
+    };
+  }
+
+  // 保存到 localStorage
+  function saveToStorage() {
+    state.data.points = state.points;
+    updateTotalCount();
+    localStorage.setItem('chaozhou-guide-data', JSON.stringify(state.data));
   }
 
   // 更新总数
@@ -226,11 +248,8 @@
   }
 
   // 保存点
-  function savePoint(e) {
-    e.preventDefault();
-    console.log('💾 savePoint 被调用');
+  function savePoint() {
     const data = readForm();
-    console.log('📝 表单数据:', data);
     if (!data.title) {
       alert('请填写标题');
       return;
@@ -243,8 +262,10 @@
       state.points.push(data);
     }
 
-    updateTotalCount();
+    // 写入 localStorage，前台也能读到
+    saveToStorage();
     renderHotspots();
+    if (state.selectedId === data.id) showForm();
     showHint('已保存：' + data.title);
   }
 
@@ -259,7 +280,7 @@
     showConfirm('确认删除', `确定要删除「${title}」吗？删除后不可恢复。`, () => {
       state.points = state.points.filter(p => p.id !== id);
       state.selectedId = null;
-      updateTotalCount();
+      saveToStorage();
       renderHotspots();
       hideForm();
       showHint('已删除');
@@ -350,7 +371,7 @@
     };
 
     state.points.push(newPoint);
-    updateTotalCount();
+    saveToStorage();
     renderHotspots();
     selectPoint(newPoint.id);
     setMode('select');
@@ -568,17 +589,9 @@
     els.zoomInBtn.addEventListener('click', () => zoomTo(1.3));
     els.zoomOutBtn.addEventListener('click', () => zoomTo(1 / 1.3));
 
-    els.panelForm.addEventListener('submit', savePoint);
-    els.deleteBtn.addEventListener('click', () => {
-      console.log('🗑️ deleteBtn 被点击');
-      deletePoint();
-    });
-
-    // 手动点击保存的日志
-    els.saveBtn.addEventListener('click', () => {
-      console.log('🖱️ saveBtn 被点击（通过click事件）');
-      // saveBtn 是 type=submit，会触发表单 submit 事件，不用额外处理
-    });
+    els.panelForm.addEventListener('submit', (e) => { e.preventDefault(); savePoint(); });
+    els.saveBtn.addEventListener('click', savePoint);
+    els.deleteBtn.addEventListener('click', deletePoint);
 
     // 坐标输入变化时实时更新标记
     els.pX.addEventListener('input', updateSelectedHotspotPosition);
@@ -617,7 +630,7 @@
 
   // 显示导出弹窗
   function showExportModal() {
-    updateTotalCount();
+    saveToStorage();
     els.exportPreview.value = JSON.stringify(state.data, null, 2);
     els.exportModal.classList.add('show');
   }

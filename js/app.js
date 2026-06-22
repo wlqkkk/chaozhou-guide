@@ -159,6 +159,20 @@
 
   // 加载数据
   async function loadData() {
+    // 优先从 localStorage 加载编辑器保存的数据
+    const saved = localStorage.getItem('chaozhou-guide-data');
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        state.points = data.points || [];
+        state.categories = data.categories || [];
+        state.routes = data.routes || [];
+        state.badges = data.badges || [];
+        return;
+      } catch (e) { /* fall through */ }
+    }
+
+    // 其次从 GUIDE_DATA 全局变量加载
     if (typeof GUIDE_DATA !== 'undefined') {
       state.points = GUIDE_DATA.points;
       state.categories = GUIDE_DATA.categories;
@@ -166,6 +180,8 @@
       state.badges = GUIDE_DATA.badges || [];
       return;
     }
+
+    // 兜底：fetch JSON
     try {
       const response = await fetch('data/points.json');
       const data = await response.json();
