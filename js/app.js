@@ -1,0 +1,958 @@
+(function() {
+  'use strict';
+
+  // 状态
+  const state = {
+    points: [],
+    categories: [],
+    routes: [],
+    badges: [],
+    checked: new Set(),
+    earnedBadges: new Set(),
+    currentPointId: null,
+    currentRouteId: null,
+    currentRouteIndex: -1,
+    mode: 'explore', // 'explore' | 'guide'
+    avatar: '🐱',
+    transform: { x: 0, y: 0, scale: 1 },
+    minScale: 0.5,
+    maxScale: 4,
+    isDragging: false,
+    lastTouchDist: 0,
+    startX: 0,
+    startY: 0,
+    containerWidth: 0,
+    containerHeight: 0,
+    mapWidth: 0,
+    mapHeight: 0
+  };
+
+  // DOM 元素
+  const els = {
+    splash: document.getElementById('splash'),
+    startBtn: document.getElementById('startBtn'),
+    mapContainer: document.getElementById('mapContainer'),
+    mapWrapper: document.getElementById('mapWrapper'),
+    mapImage: document.getElementById('mapImage'),
+    mapLoading: document.getElementById('mapLoading'),
+    hotspotsLayer: document.getElementById('hotspotsLayer'),
+    storySheet: document.getElementById('storySheet'),
+    storyCategory: document.getElementById('storyCategory'),
+    storyTitle: document.getElementById('storyTitle'),
+    storyArea: document.getElementById('storyArea'),
+    storySummary: document.getElementById('storySummary'),
+    storyText: document.getElementById('storyText'),
+    checkInBtn: document.getElementById('checkInBtn'),
+    prevBtn: document.getElementById('prevBtn'),
+    nextBtn: document.getElementById('nextBtn'),
+    progressText: document.getElementById('progressText'),
+    modeBtn: document.getElementById('modeBtn'),
+    modeText: document.querySelector('.mode-text'),
+    modeHint: document.getElementById('modeHint'),
+    routeBtn: document.getElementById('routeBtn'),
+    routeModal: document.getElementById('routeModal'),
+    routeList: document.getElementById('routeList'),
+    closeRouteModal: document.getElementById('closeRouteModal'),
+    resultModal: document.getElementById('resultModal'),
+    closeResultModal: document.getElementById('closeResultModal'),
+    resultCount: document.getElementById('resultCount'),
+    resultCategories: document.getElementById('resultCategories'),
+    resultPoints: document.getElementById('resultPoints'),
+    badgeModal: document.getElementById('badgeModal'),
+    badgeIcon: document.getElementById('badgeIcon'),
+    badgeTitle: document.getElementById('badgeTitle'),
+    badgeDesc: document.getElementById('badgeDesc'),
+    closeBadgeModal: document.getElementById('closeBadgeModal'),
+    avatarModal: document.getElementById('avatarModal'),
+    avatarGrid: document.getElementById('avatarGrid'),
+    confirmAvatarBtn: document.getElementById('confirmAvatarBtn'),
+    certificateModal: document.getElementById('certificateModal'),
+    closeCertificateModal: document.getElementById('closeCertificateModal'),
+    certName: document.getElementById('certName'),
+    certNameInput: document.getElementById('certNameInput'),
+    certCount: document.getElementById('certCount'),
+    certDate: document.getElementById('certDate'),
+    certNo: document.getElementById('certNo'),
+    updateCertNameBtn: document.getElementById('updateCertNameBtn'),
+    downloadCertBtn: document.getElementById('downloadCertBtn'),
+    toastContainer: document.getElementById('toastContainer')
+  };
+
+  // 初始化
+  async function init() {
+    await loadData();
+    loadChecked();
+    setupEventListeners();
+    setupZoomControls();
+    renderHotspots();
+    renderAvatarGrid();
+    updateProgress();
+
+    // 等待地图图片加载完成后再适配屏幕
+    if (els.mapImage.complete && els.mapImage.naturalWidth > 0) {
+      fitMapToScreen();
+    } else {
+      els.mapImage.addEventListener('load', fitMapToScreen, { once: true });
+      els.mapImage.addEventListener('error', () => {
+        console.error('平面图加载失败');
+        alert('平面图加载失败，请检查图片路径');
+      }, { once: true });
+    }
+
+    els.startBtn.addEventListener('click', () => {
+      // 首次使用显示头像选择，否则直接进入
+      const hasSeenAvatar = localStorage.getItem('chaozhou-avatar-seen');
+      if (!hasSeenAvatar) {
+        showAvatarModal();
+      } else {
+        enterMap();
+      }
+    });
+
+    els.confirmAvatarBtn.addEventListener('click', () => {
+      localStorage.setItem('chaozhou-avatar-seen', '1');
+      hideAvatarModal();
+      enterMap();
+    });
+
+    // 进入地图
+    function enterMap() {
+      els.splash.classList.add('hide');
+      setTimeout(() => {
+        updateDimensions();
+        fitMapToScreen();
+        showModeHint();
+      }, 100);
+    }
+
+    // 调试/预览模式：URL 带 ?preview=1 时自动进入地图
+    if (location.search.includes('preview=1')) {
+      setTimeout(() => {
+        els.splash.classList.add('hide');
+        updateDimensions();
+        fitMapToScreen();
+        // 可选：URL 带 checked=p01,p02 时模拟已打卡
+        const checkedMatch = location.search.match(/checked=([a-z0-9,]+)/);
+        if (checkedMatch) {
+          checkedMatch[1].split(',').forEach(id => state.checked.add(id));
+          renderHotspots();
+          updateProgress();
+        }
+        // 可选：URL 带 active=xxx 时自动选中某个点
+        var match = location.search.match(/active=([a-z0-9]+)/);
+        if (match) selectPoint(match[1]);
+        // 可选：URL 带 certificate=1 时直接显示证书
+        if (location.search.includes('certificate=1')) {
+          setTimeout(showCertificate, 1500);
+        }
+        // 可选：URL 带 badge=xxx 时直接显示徽章弹窗
+        var badgeMatch = location.search.match(/badge=([a-z0-9]+)/);
+        if (badgeMatch) {
+          var badge = state.badges.find(b => b.id === badgeMatch[1]);
+          if (badge) setTimeout(() => showBadgeModal(badge), 1000);
+        }
+      }, 300);
+    }
+  }
+
+  // 加载数据
+  async function loadData() {
+    if (typeof GUIDE_DATA !== 'undefined') {
+      state.points = GUIDE_DATA.points;
+      state.categories = GUIDE_DATA.categories;
+      state.routes = GUIDE_DATA.routes;
+      state.badges = GUIDE_DATA.badges || [];
+      return;
+    }
+    try {
+      const response = await fetch('data/points.json');
+      const data = await response.json();
+      state.points = data.points;
+      state.categories = data.categories;
+      state.routes = data.routes;
+      state.badges = data.badges || [];
+    } catch (err) {
+      console.error('加载数据失败:', err);
+      alert('数据加载失败，请检查网络连接');
+    }
+  }
+
+  // 读取本地打卡记录
+  function loadChecked() {
+    try {
+      const saved = localStorage.getItem('chaozhou-checked');
+      if (saved) {
+        state.checked = new Set(JSON.parse(saved));
+      }
+      const savedBadges = localStorage.getItem('chaozhou-badges');
+      if (savedBadges) {
+        state.earnedBadges = new Set(JSON.parse(savedBadges));
+      }
+      const savedAvatar = localStorage.getItem('chaozhou-avatar');
+      if (savedAvatar) {
+        state.avatar = savedAvatar;
+      }
+    } catch (e) {
+      state.checked = new Set();
+      state.earnedBadges = new Set();
+    }
+  }
+
+  // 保存打卡记录
+  function saveChecked() {
+    try {
+      localStorage.setItem('chaozhou-checked', JSON.stringify([...state.checked]));
+      localStorage.setItem('chaozhou-badges', JSON.stringify([...state.earnedBadges]));
+      localStorage.setItem('chaozhou-avatar', state.avatar);
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // 渲染热点
+  function renderHotspots() {
+    els.hotspotsLayer.innerHTML = '';
+    state.points.forEach(point => {
+      const isChecked = state.checked.has(point.id);
+      const isActive = point.id === state.currentPointId;
+      const hotspot = document.createElement('div');
+      hotspot.className = 'hotspot' + (isChecked ? ' checked' : '') + (isActive ? ' active' : '');
+      hotspot.dataset.id = point.id;
+      hotspot.style.left = (point.x * 100) + '%';
+      hotspot.style.top = (point.y * 100) + '%';
+
+      const dot = document.createElement('div');
+      dot.className = 'hotspot-dot';
+      dot.style.backgroundColor = getCategoryColor(point.category);
+
+      const ring = document.createElement('div');
+      ring.className = 'hotspot-ring';
+      ring.style.borderColor = getCategoryColor(point.category);
+
+      // 已打卡显示头像
+      const avatar = document.createElement('div');
+      avatar.className = 'hotspot-avatar';
+      avatar.textContent = isChecked ? state.avatar : '';
+
+      const label = document.createElement('div');
+      label.className = 'hotspot-label';
+      label.textContent = point.title;
+
+      hotspot.appendChild(dot);
+      hotspot.appendChild(ring);
+      hotspot.appendChild(avatar);
+      hotspot.appendChild(label);
+
+      hotspot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectPoint(point.id);
+      });
+
+      els.hotspotsLayer.appendChild(hotspot);
+    });
+  }
+
+  // 获取分类颜色
+  function getCategoryColor(categoryId) {
+    const cat = state.categories.find(c => c.id === categoryId);
+    return cat ? cat.color : '#c9a86c';
+  }
+
+  // 获取分类名称
+  function getCategoryName(categoryId) {
+    const cat = state.categories.find(c => c.id === categoryId);
+    return cat ? cat.name : '其他';
+  }
+
+  // 选择故事点
+  function selectPoint(id) {
+    const point = state.points.find(p => p.id === id);
+    if (!point) return;
+
+    state.currentPointId = id;
+
+    // 更新热点样式
+    document.querySelectorAll('.hotspot').forEach(h => h.classList.remove('active'));
+    const activeHotspot = document.querySelector(`.hotspot[data-id="${id}"]`);
+    if (activeHotspot) activeHotspot.classList.add('active');
+
+    // 填充故事卡片
+    els.storyCategory.textContent = getCategoryName(point.category);
+    els.storyCategory.style.backgroundColor = getCategoryColor(point.category) + '33';
+    els.storyCategory.style.color = getCategoryColor(point.category);
+    els.storyTitle.textContent = point.title;
+    els.storyArea.textContent = point.area;
+    els.storySummary.textContent = point.summary;
+    els.storyText.textContent = point.story;
+
+    // 更新打卡按钮
+    updateCheckInButton();
+
+    // 更新导航按钮
+    updateNavButtons();
+
+    // 打开故事卡片
+    els.storySheet.classList.add('open');
+  }
+
+  // 更新打卡按钮
+  function updateCheckInButton() {
+    const checked = state.checked.has(state.currentPointId);
+    els.checkInBtn.classList.toggle('checked', checked);
+    els.checkInBtn.querySelector('.btn-text').textContent = checked ? '已打卡' : '打卡';
+    els.checkInBtn.querySelector('.btn-icon').textContent = checked ? '✓' : '📍';
+  }
+
+  // 更新导航按钮
+  function updateNavButtons() {
+    if (state.mode === 'guide' && state.currentRouteId) {
+      const route = state.routes.find(r => r.id === state.currentRouteId);
+      const index = route.points.indexOf(state.currentPointId);
+      els.prevBtn.disabled = index <= 0;
+      els.nextBtn.disabled = index >= route.points.length - 1;
+    } else {
+      const index = state.points.findIndex(p => p.id === state.currentPointId);
+      els.prevBtn.disabled = index <= 0;
+      els.nextBtn.disabled = index >= state.points.length - 1;
+    }
+  }
+
+  // 打卡
+  function checkIn() {
+    if (!state.currentPointId) return;
+    const point = state.points.find(p => p.id === state.currentPointId);
+    const alreadyChecked = state.checked.has(state.currentPointId);
+
+    state.checked.add(state.currentPointId);
+    saveChecked();
+    updateCheckInButton();
+    updateProgress();
+    renderHotspots();
+
+    // 重新标记当前选中
+    const activeHotspot = document.querySelector(`.hotspot[data-id="${state.currentPointId}"]`);
+    if (activeHotspot) activeHotspot.classList.add('active');
+
+    // 首次打卡显示 Toast
+    if (!alreadyChecked && point) {
+      showToast(`✓ 已打卡：${point.title}`, 'success');
+      checkBadges();
+    }
+
+    // 如果全部打卡完成，显示证书
+    if (state.checked.size === state.points.length) {
+      setTimeout(showCertificate, 800);
+    }
+  }
+
+  // 检查徽章
+  function checkBadges() {
+    const count = state.checked.size;
+    const newBadges = [];
+
+    state.badges.forEach(badge => {
+      if (count >= badge.threshold && !state.earnedBadges.has(badge.id)) {
+        state.earnedBadges.add(badge.id);
+        newBadges.push(badge);
+      }
+    });
+
+    if (newBadges.length > 0) {
+      saveChecked();
+      // 依次显示新徽章
+      newBadges.forEach((badge, index) => {
+        setTimeout(() => showBadgeModal(badge), index * 300);
+      });
+    }
+  }
+
+  // 显示 Toast
+  function showToast(message, type = '') {
+    const toast = document.createElement('div');
+    toast.className = 'toast' + (type ? ' ' + type : '');
+    toast.textContent = message;
+    els.toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+      toast.remove();
+    }, 2500);
+  }
+
+  // 显示徽章弹窗
+  function showBadgeModal(badge) {
+    els.badgeIcon.textContent = badge.icon;
+    els.badgeTitle.textContent = `获得「${badge.name}」徽章`;
+    els.badgeDesc.textContent = badge.desc;
+    els.badgeModal.classList.add('show');
+  }
+
+  // 隐藏徽章弹窗
+  function hideBadgeModal() {
+    els.badgeModal.classList.remove('show');
+  }
+
+  // 渲染头像选择
+  function renderAvatarGrid() {
+    const avatars = ['🐱', '🐻', '🦊', '🐼', '🐶', '🐰', '🐯', '🦁'];
+    els.avatarGrid.innerHTML = '';
+    avatars.forEach(avatar => {
+      const div = document.createElement('div');
+      div.className = 'avatar-option' + (avatar === state.avatar ? ' selected' : '');
+      div.textContent = avatar;
+      div.addEventListener('click', () => selectAvatar(avatar));
+      els.avatarGrid.appendChild(div);
+    });
+  }
+
+  // 选择头像
+  function selectAvatar(avatar) {
+    state.avatar = avatar;
+    saveChecked();
+    renderAvatarGrid();
+    renderHotspots();
+  }
+
+  // 显示头像选择弹窗
+  function showAvatarModal() {
+    renderAvatarGrid();
+    els.avatarModal.classList.add('show');
+  }
+
+  // 隐藏头像选择弹窗
+  function hideAvatarModal() {
+    els.avatarModal.classList.remove('show');
+  }
+
+  // 显示证书
+  function showCertificate() {
+    const count = state.checked.size;
+    const name = localStorage.getItem('chaozhou-cert-name') || '探索者';
+    const certNo = localStorage.getItem('chaozhou-cert-no') || generateCertNo();
+    localStorage.setItem('chaozhou-cert-no', certNo);
+    els.certName.textContent = name;
+    els.certNameInput.value = name === '探索者' ? '' : name;
+    els.certCount.textContent = count;
+    els.certDate.textContent = formatDate(new Date());
+    els.certNo.textContent = 'NO. ' + certNo;
+    els.certificateModal.classList.add('show');
+  }
+
+  // 生成证书编号
+  function generateCertNo() {
+    const date = new Date();
+    const prefix = '' + date.getFullYear() + String(date.getMonth() + 1).padStart(2, '0') + String(date.getDate()).padStart(2, '0');
+    const random = String(Math.floor(Math.random() * 9000) + 1000);
+    return prefix + '-' + random;
+  }
+
+  // 隐藏证书
+  function hideCertificate() {
+    els.certificateModal.classList.remove('show');
+  }
+
+  // 更新证书名字
+  function updateCertName() {
+    const name = els.certNameInput.value.trim() || '探索者';
+    localStorage.setItem('chaozhou-cert-name', name);
+    els.certName.textContent = name;
+  }
+
+  // 下载证书图片
+  function downloadCertificate() {
+    const width = 600;
+    const height = 800;
+    const canvas = document.createElement('canvas');
+    canvas.width = width * 2;
+    canvas.height = height * 2;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(2, 2);
+
+    // 背景渐变
+    const gradient = ctx.createLinearGradient(0, 0, width, height);
+    gradient.addColorStop(0, '#f8f4ec');
+    gradient.addColorStop(0.5, '#ede6d6');
+    gradient.addColorStop(1, '#e5dcc8');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+
+    // 内阴影效果
+    ctx.shadowColor = 'rgba(201, 168, 108, 0.15)';
+    ctx.shadowBlur = 60;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.fillRect(0, 0, width, height);
+    ctx.shadowColor = 'transparent';
+
+    // 外边框
+    ctx.strokeStyle = '#b8986a';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(20, 20, width - 40, height - 40);
+
+    // 内边框
+    ctx.strokeStyle = 'rgba(139, 115, 85, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(32, 32, width - 64, height - 64);
+
+    // 顶部装饰
+    ctx.fillStyle = '#a08050';
+    ctx.font = '16px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('❖  ❖  ❖', width / 2, 56);
+
+    // 酒店名
+    ctx.fillStyle = '#8b7355';
+    ctx.font = '13px "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    ctx.fillText('潮州古城有熊酒店', width / 2, 110);
+
+    // 标题
+    ctx.fillStyle = '#5c4033';
+    ctx.font = 'bold 36px "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    ctx.fillText('故事探索认证', width / 2, 165);
+
+    // 英文副标题
+    ctx.fillStyle = '#9a8568';
+    ctx.font = '12px "Helvetica Neue", Arial, sans-serif';
+    ctx.fillText('CERTIFICATE OF EXPLORATION', width / 2, 195);
+
+    // 分隔线
+    const grad = ctx.createLinearGradient(width / 2 - 80, 0, width / 2 + 80, 0);
+    grad.addColorStop(0, 'transparent');
+    grad.addColorStop(0.5, '#b8986a');
+    grad.addColorStop(1, 'transparent');
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(width / 2 - 80, 230);
+    ctx.lineTo(width / 2 + 80, 230);
+    ctx.stroke();
+
+    // 图标
+    ctx.font = '60px serif';
+    ctx.fillText('🏅', width / 2, 310);
+
+    // 名字
+    const name = els.certName.textContent || '探索者';
+    ctx.fillStyle = '#6b4423';
+    ctx.font = 'bold 32px "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    ctx.fillText(name, width / 2, 380);
+
+    // 名字下划线
+    ctx.strokeStyle = 'rgba(139, 115, 85, 0.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(width / 2 - 100, 400);
+    ctx.lineTo(width / 2 + 100, 400);
+    ctx.stroke();
+
+    // 描述
+    const count = els.certCount.textContent || '30';
+    ctx.fillStyle = '#5a4d3a';
+    ctx.font = '16px "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    ctx.fillText(`已完成全部 ${count} 个故事点探索`, width / 2, 460);
+
+    // 日期
+    ctx.fillStyle = '#8b7355';
+    ctx.font = '14px "Helvetica Neue", Arial, sans-serif';
+    ctx.fillText(els.certDate.textContent || formatDate(new Date()), width / 2, 520);
+
+    // 编号
+    ctx.fillStyle = '#a09078';
+    ctx.font = '12px "Helvetica Neue", Arial, sans-serif';
+    ctx.fillText(els.certNo.textContent || 'NO. 0001', width / 2, 550);
+
+    // 印章
+    ctx.save();
+    ctx.translate(width - 90, height - 90);
+    ctx.rotate(-12 * Math.PI / 180);
+    ctx.strokeStyle = '#8b4513';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, 36, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(0, 0, 30, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#8b4513';
+    ctx.font = 'bold 16px "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    ctx.fillText('有熊', 0, 6);
+    ctx.restore();
+
+    // 下载
+    const link = document.createElement('a');
+    link.download = '有熊酒店探索认证.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }
+
+  // 格式化日期
+  function formatDate(date) {
+    return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+  }
+
+  // 更新进度
+  function updateProgress() {
+    els.progressText.textContent = `${state.checked.size}/${state.points.length}`;
+  }
+
+  // 居中到指定坐标
+  function centerToPoint(x, y) {
+    updateDimensions();
+    const targetX = state.containerWidth / 2 - x * state.mapWidth * state.transform.scale;
+    const targetY = state.containerHeight / 2 - y * state.mapHeight * state.transform.scale;
+    state.transform.x = targetX;
+    state.transform.y = targetY;
+    applyTransform();
+  }
+
+  // 适应屏幕
+  function fitMapToScreen() {
+    updateDimensions();
+    if (state.mapWidth === 0 || state.mapHeight === 0) {
+      console.warn('平面图尺寸为 0，等待加载');
+      return;
+    }
+    const scaleX = state.containerWidth / state.mapWidth;
+    const scaleY = state.containerHeight / state.mapHeight;
+    const scale = Math.min(scaleX, scaleY) * 0.95;
+    state.transform.scale = Math.max(state.minScale, Math.min(scale, state.maxScale));
+    state.transform.x = (state.containerWidth - state.mapWidth * state.transform.scale) / 2;
+    state.transform.y = (state.containerHeight - state.mapHeight * state.transform.scale) / 2;
+    // 首次适配时添加平滑动画
+    if (!state.initialFitDone) {
+      els.mapWrapper.style.transition = 'transform 0.5s cubic-bezier(0.32, 0.72, 0, 1)';
+      state.initialFitDone = true;
+      setTimeout(() => {
+        els.mapWrapper.style.transition = '';
+      }, 500);
+    }
+    applyTransform();
+    if (els.mapLoading) els.mapLoading.style.display = 'none';
+  }
+
+  // 更新尺寸
+  function updateDimensions() {
+    state.containerWidth = els.mapContainer.clientWidth;
+    state.containerHeight = els.mapContainer.clientHeight;
+    state.mapWidth = els.mapImage.naturalWidth || els.mapImage.width;
+    state.mapHeight = els.mapImage.naturalHeight || els.mapImage.height;
+  }
+
+  // 应用变换
+  function applyTransform() {
+    const { x, y, scale } = state.transform;
+    els.mapWrapper.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+    els.mapWrapper.style.setProperty('--map-scale', scale);
+  }
+
+  // 事件监听
+  function setupEventListeners() {
+    // 地图拖拽和缩放
+    els.mapContainer.addEventListener('touchstart', handleTouchStart, { passive: false });
+    els.mapContainer.addEventListener('touchmove', handleTouchMove, { passive: false });
+    els.mapContainer.addEventListener('touchend', handleTouchEnd);
+    els.mapContainer.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    els.mapContainer.addEventListener('wheel', handleWheel, { passive: false });
+
+    // 故事卡片按钮
+    els.checkInBtn.addEventListener('click', checkIn);
+    els.prevBtn.addEventListener('click', () => navigatePoint(-1));
+    els.nextBtn.addEventListener('click', () => navigatePoint(1));
+
+    // 模式切换
+    els.modeBtn.addEventListener('click', toggleMode);
+
+    // 路线选择
+    els.routeBtn.addEventListener('click', showRouteModal);
+    els.closeRouteModal.addEventListener('click', hideRouteModal);
+
+    // 成果页
+    els.progressText.addEventListener('click', showResult);
+    els.closeResultModal.addEventListener('click', hideResultModal);
+
+    // 徽章弹窗
+    els.closeBadgeModal.addEventListener('click', hideBadgeModal);
+
+    // 证书弹窗
+    els.closeCertificateModal.addEventListener('click', hideCertificate);
+    els.updateCertNameBtn.addEventListener('click', updateCertName);
+    els.downloadCertBtn.addEventListener('click', downloadCertificate);
+
+    // 点击地图空白处关闭卡片
+    els.mapContainer.addEventListener('click', (e) => {
+      if (e.target === els.mapContainer || e.target === els.mapWrapper || e.target === els.mapImage) {
+        closeStorySheet();
+      }
+    });
+
+    // 窗口大小变化
+    window.addEventListener('resize', () => {
+      updateDimensions();
+      if (els.mapImage.complete && els.mapImage.naturalWidth > 0) {
+        fitMapToScreen();
+      }
+    });
+  }
+
+  // 触摸开始
+  function handleTouchStart(e) {
+    if (e.touches.length === 1) {
+      state.isDragging = true;
+      state.startX = e.touches[0].clientX - state.transform.x;
+      state.startY = e.touches[0].clientY - state.transform.y;
+    } else if (e.touches.length === 2) {
+      state.isDragging = false;
+      state.lastTouchDist = getTouchDistance(e.touches);
+    }
+  }
+
+  // 触摸移动
+  function handleTouchMove(e) {
+    e.preventDefault();
+    if (e.touches.length === 1 && state.isDragging) {
+      state.transform.x = e.touches[0].clientX - state.startX;
+      state.transform.y = e.touches[0].clientY - state.startY;
+      applyTransform();
+    } else if (e.touches.length === 2) {
+      const dist = getTouchDistance(e.touches);
+      const scaleChange = dist / state.lastTouchDist;
+      const newScale = state.transform.scale * scaleChange;
+      zoomTo(newScale, getTouchCenter(e.touches));
+      state.lastTouchDist = dist;
+    }
+  }
+
+  // 触摸结束
+  function handleTouchEnd() {
+    state.isDragging = false;
+  }
+
+  // 鼠标按下
+  function handleMouseDown(e) {
+    state.isDragging = true;
+    state.startX = e.clientX - state.transform.x;
+    state.startY = e.clientY - state.transform.y;
+  }
+
+  // 鼠标移动
+  function handleMouseMove(e) {
+    if (!state.isDragging) return;
+    state.transform.x = e.clientX - state.startX;
+    state.transform.y = e.clientY - state.startY;
+    applyTransform();
+  }
+
+  // 鼠标释放
+  function handleMouseUp() {
+    state.isDragging = false;
+  }
+
+  // 滚轮缩放
+  function handleWheel(e) {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    const newScale = state.transform.scale * delta;
+    zoomTo(newScale, { x: e.clientX, y: e.clientY });
+  }
+
+  // 计算双指距离
+  function getTouchDistance(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  // 计算双指中心
+  function getTouchCenter(touches) {
+    return {
+      x: (touches[0].clientX + touches[1].clientX) / 2,
+      y: (touches[0].clientY + touches[1].clientY) / 2
+    };
+  }
+
+  // 缩放到指定级别
+  function zoomTo(newScale, center) {
+    newScale = Math.max(state.minScale, Math.min(newScale, state.maxScale));
+    const ratio = newScale / state.transform.scale;
+    const rect = els.mapContainer.getBoundingClientRect();
+    const cx = center ? center.x - rect.left : state.containerWidth / 2;
+    const cy = center ? center.y - rect.top : state.containerHeight / 2;
+
+    state.transform.x = cx - (cx - state.transform.x) * ratio;
+    state.transform.y = cy - (cy - state.transform.y) * ratio;
+    state.transform.scale = newScale;
+    applyTransform();
+  }
+
+  // 添加缩放控件
+  function setupZoomControls() {
+    const controls = document.createElement('div');
+    controls.className = 'zoom-controls';
+    controls.innerHTML = `
+      <button id="zoomIn">+</button>
+      <button id="zoomOut">−</button>
+      <button id="fitMap">⌂</button>
+    `;
+    document.getElementById('app').appendChild(controls);
+
+    controls.querySelector('#zoomIn').addEventListener('click', () => zoomTo(state.transform.scale * 1.3));
+    controls.querySelector('#zoomOut').addEventListener('click', () => zoomTo(state.transform.scale / 1.3));
+    controls.querySelector('#fitMap').addEventListener('click', fitMapToScreen);
+  }
+
+  // 导航到上一个/下一个
+  function navigatePoint(direction) {
+    let nextId;
+    if (state.mode === 'guide' && state.currentRouteId) {
+      const route = state.routes.find(r => r.id === state.currentRouteId);
+      const currentIndex = route.points.indexOf(state.currentPointId);
+      const nextIndex = currentIndex + direction;
+      if (nextIndex >= 0 && nextIndex < route.points.length) {
+        nextId = route.points[nextIndex];
+      }
+    } else {
+      const currentIndex = state.points.findIndex(p => p.id === state.currentPointId);
+      const nextIndex = currentIndex + direction;
+      if (nextIndex >= 0 && nextIndex < state.points.length) {
+        nextId = state.points[nextIndex].id;
+      }
+    }
+
+    if (nextId) {
+      selectPoint(nextId);
+    }
+  }
+
+  // 切换模式
+  function toggleMode() {
+    state.mode = state.mode === 'explore' ? 'guide' : 'explore';
+    if (state.mode === 'guide') {
+      els.modeText.textContent = '导览模式';
+      els.modeBtn.querySelector('.mode-icon').textContent = '🎧';
+      showRouteModal();
+    } else {
+      els.modeText.textContent = '探索模式';
+      els.modeBtn.querySelector('.mode-icon').textContent = '🗺️';
+      state.currentRouteId = null;
+      state.currentRouteIndex = -1;
+    }
+    showModeHint();
+  }
+
+  // 显示模式提示
+  function showModeHint() {
+    els.modeHint.textContent = state.mode === 'explore'
+      ? '探索模式：自由浏览地图上的故事点'
+      : '导览模式：按推荐路线逐个点讲解';
+    els.modeHint.classList.add('show');
+    setTimeout(() => els.modeHint.classList.remove('show'), 2500);
+  }
+
+  // 关闭故事卡片
+  function closeStorySheet() {
+    els.storySheet.classList.remove('open');
+    document.querySelectorAll('.hotspot').forEach(h => h.classList.remove('active'));
+  }
+
+  // 显示路线弹窗
+  function showRouteModal() {
+    renderRouteList();
+    els.routeModal.classList.add('show');
+  }
+
+  // 隐藏路线弹窗
+  function hideRouteModal() {
+    els.routeModal.classList.remove('show');
+  }
+
+  // 渲染路线列表
+  function renderRouteList() {
+    els.routeList.innerHTML = '';
+    state.routes.forEach(route => {
+      const item = document.createElement('div');
+      item.className = 'route-item';
+      item.innerHTML = `
+        <h4>${route.name}</h4>
+        <p>${route.description} · 共 ${route.points.length} 个点</p>
+      `;
+      item.addEventListener('click', () => startRoute(route.id));
+      els.routeList.appendChild(item);
+    });
+  }
+
+  // 开始路线
+  function startRoute(routeId) {
+    state.mode = 'guide';
+    state.currentRouteId = routeId;
+    els.modeText.textContent = '导览模式';
+    els.modeBtn.querySelector('.mode-icon').textContent = '🎧';
+    hideRouteModal();
+    showModeHint();
+
+    const route = state.routes.find(r => r.id === routeId);
+    if (route && route.points.length > 0) {
+      selectPoint(route.points[0]);
+    }
+  }
+
+  // 显示成果页
+  function showResult() {
+    els.resultCount.textContent = state.checked.size;
+
+    // 分类统计
+    const catCounts = {};
+    state.points.forEach(p => {
+      catCounts[p.category] = (catCounts[p.category] || 0) + (state.checked.has(p.id) ? 1 : 0);
+    });
+
+    els.resultCategories.innerHTML = '';
+    state.categories.forEach(cat => {
+      const count = catCounts[cat.id] || 0;
+      if (count > 0) {
+        const tag = document.createElement('span');
+        tag.className = 'category-tag';
+        tag.style.color = cat.color;
+        tag.style.border = `1px solid ${cat.color}44`;
+        tag.textContent = `${cat.name} ${count}`;
+        els.resultCategories.appendChild(tag);
+      }
+    });
+
+    // 故事点列表
+    els.resultPoints.innerHTML = '';
+    state.points.forEach(point => {
+      const div = document.createElement('div');
+      div.className = 'result-point' + (state.checked.has(point.id) ? ' checked' : '');
+      div.innerHTML = `
+        <span class="check-icon">${state.checked.has(point.id) ? '✓' : ''}</span>
+        <span>${point.title}</span>
+      `;
+      div.addEventListener('click', () => {
+        hideResultModal();
+        selectPoint(point.id);
+      });
+      els.resultPoints.appendChild(div);
+    });
+
+    els.resultModal.classList.add('show');
+  }
+
+  // 隐藏成果页
+  function hideResultModal() {
+    els.resultModal.classList.remove('show');
+  }
+
+  // 注册 Service Worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch((err) => {
+        console.error('Service Worker 注册失败:', err);
+      });
+    });
+  }
+
+  // 启动
+  init();
+})();

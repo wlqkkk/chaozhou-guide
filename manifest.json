@@ -1,0 +1,22 @@
+{
+  "name": "潮州古城有熊酒店 · 故事地图",
+  "short_name": "有熊故事地图",
+  "description": "潮州古城有熊酒店平面图故事导览与打卡",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#1a1a1a",
+  "theme_color": "#1a1a1a",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "images/floor-plan-styled-1200.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "images/floor-plan-styled-1200.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

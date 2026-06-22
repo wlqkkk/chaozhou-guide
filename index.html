@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1a1a1a">
+  <title>潮州古城有熊酒店 · 故事地图</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    // 在 app.js 加载前，先把地图居中显示，避免用户看到错位或空白
+    document.addEventListener('DOMContentLoaded', function() {
+      var img = document.getElementById('mapImage');
+      var wrapper = document.getElementById('mapWrapper');
+      var container = document.getElementById('mapContainer');
+      function fitInitial() {
+        if (!img.naturalWidth || !container || !wrapper) return;
+        var cw = container.clientWidth;
+        var ch = container.clientHeight;
+        var scale = Math.min(cw / img.naturalWidth, ch / img.naturalHeight) * 0.95;
+        scale = Math.max(0.5, Math.min(scale, 4));
+        var x = (cw - img.naturalWidth * scale) / 2;
+        var y = (ch - img.naturalHeight * scale) / 2;
+        wrapper.style.transform = 'translate(' + x + 'px, ' + y + 'px) scale(' + scale + ')';
+      }
+      if (img.complete) fitInitial();
+      else img.addEventListener('load', fitInitial);
+    });
+  </script>
+</head>
+<body>
+  <div id="app">
+    <!-- 顶部栏 -->
+    <header class="top-bar">
+      <div class="hotel-info">
+        <h1>潮州古城有熊酒店</h1>
+        <span class="subtitle">故事地图</span>
+      </div>
+      <div class="top-actions">
+        <button class="mode-btn" id="modeBtn" title="切换模式">
+          <span class="mode-icon">🗺️</span>
+          <span class="mode-text">探索模式</span>
+        </button>
+        <button class="route-btn" id="routeBtn" title="推荐路线">
+          <span>🚶</span>
+        </button>
+        <div class="progress">
+          <span id="progressText">0/30</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 模式提示 -->
+    <div class="mode-hint" id="modeHint">
+      探索模式：自由浏览地图上的故事点
+    </div>
+
+    <!-- 地图容器 -->
+    <main class="map-container" id="mapContainer">
+      <div class="map-loading" id="mapLoading">平面图加载中…</div>
+      <div class="map-wrapper" id="mapWrapper">
+        <img
+          src="images/floor-plan-styled-1200.jpg"
+          alt="潮州古城有熊酒店平面图"
+          class="map-image"
+          id="mapImage"
+          draggable="false"
+        >
+        <div class="hotspots-layer" id="hotspotsLayer"></div>
+      </div>
+    </main>
+
+    <!-- 底部故事卡片 -->
+    <div class="story-sheet" id="storySheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-content">
+        <div class="story-header">
+          <span class="story-category" id="storyCategory">分类</span>
+          <h2 id="storyTitle">故事标题</h2>
+          <span class="story-area" id="storyArea">所在区域</span>
+        </div>
+        <div class="story-body">
+          <p id="storySummary">摘要</p>
+          <p id="storyText">完整故事</p>
+        </div>
+        <div class="story-actions">
+          <button class="check-in-btn" id="checkInBtn">
+            <span class="btn-icon">📍</span>
+            <span class="btn-text">打卡</span>
+          </button>
+          <button class="nav-btn" id="prevBtn">上一个</button>
+          <button class="nav-btn" id="nextBtn">下一个</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 路线选择弹窗 -->
+    <div class="modal" id="routeModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>选择导览路线</h3>
+          <button class="close-btn" id="closeRouteModal">×</button>
+        </div>
+        <div class="route-list" id="routeList"></div>
+      </div>
+    </div>
+
+    <!-- 成果页 -->
+    <div class="modal" id="resultModal">
+      <div class="modal-content result-content">
+        <div class="modal-header">
+          <h3>我的探索成果</h3>
+          <button class="close-btn" id="closeResultModal">×</button>
+        </div>
+        <div class="result-body">
+          <div class="result-stats">
+            <div class="stat-number" id="resultCount">0</div>
+            <div class="stat-label">已打卡故事点</div>
+          </div>
+          <div class="result-categories" id="resultCategories"></div>
+          <div class="result-points" id="resultPoints"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 证书/认证页 -->
+    <div class="modal" id="certificateModal">
+      <div class="modal-content certificate-content">
+        <div class="modal-header">
+          <h3>探索认证</h3>
+          <button class="close-btn" id="closeCertificateModal">×</button>
+        </div>
+        <div class="certificate-body">
+          <div class="certificate-card" id="certificateCard">
+            <div class="cert-hotel">潮州古城有熊酒店</div>
+            <div class="cert-title">故事探索认证</div>
+            <div class="cert-subtitle">CERTIFICATE OF EXPLORATION</div>
+            <div class="cert-divider"></div>
+            <div class="cert-icon">🏅</div>
+            <div class="cert-name" id="certName">探索者</div>
+            <div class="cert-desc">
+              已完成全部 <strong id="certCount">30</strong> 个故事点探索
+            </div>
+            <div class="cert-date" id="certDate">2026.06.15</div>
+            <div class="cert-no" id="certNo">NO. 0001</div>
+            <div class="cert-seal">有熊</div>
+          </div>
+          <div class="certificate-form">
+            <label>您的名字</label>
+            <input type="text" id="certNameInput" placeholder="输入名字" maxlength="10">
+            <button class="btn-primary" id="updateCertNameBtn">更新证书</button>
+            <button class="btn-secondary" id="downloadCertBtn">保存图片</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 徽章弹窗 -->
+    <div class="modal" id="badgeModal">
+      <div class="modal-content badge-content">
+        <div class="badge-icon" id="badgeIcon">🏅</div>
+        <h3 id="badgeTitle">获得徽章</h3>
+        <p id="badgeDesc">描述</p>
+        <button class="start-btn" id="closeBadgeModal">太棒了</button>
+      </div>
+    </div>
+
+    <!-- Toast 提示 -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- 头像选择弹窗 -->
+    <div class="modal" id="avatarModal">
+      <div class="modal-content avatar-content">
+        <h3>选择你的探索头像</h3>
+        <p>打卡后故事点会显示为你选择的头像</p>
+        <div class="avatar-grid" id="avatarGrid"></div>
+        <button class="start-btn" id="confirmAvatarBtn">开始探索</button>
+      </div>
+    </div>
+
+    <!-- 启动页 -->
+    <div class="splash" id="splash">
+      <div class="splash-content">
+        <h1>潮州古城有熊酒店</h1>
+        <p>故事地图</p>
+        <button class="start-btn" id="startBtn">开始探索</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="data/points.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
