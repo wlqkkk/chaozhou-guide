@@ -116,6 +116,23 @@ html, body {
   padding: 8px 14px;
   font-weight: 600;
   font-size: 13px;
+  cursor: pointer;
+}
+
+.reset-btn {
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  border-radius: 20px;
+  padding: 8px 10px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.reset-btn:hover {
+  background: rgba(198, 93, 87, 0.3);
+  color: var(--danger, #c65d57);
 }
 
 .mode-hint {
@@ -248,6 +265,11 @@ html, body {
   opacity: 0;
   transition: all 0.3s ease;
   pointer-events: none;
+  z-index: 5;
+}
+
+.hotspot-label {
+  z-index: 15;
 }
 
 .hotspot.checked .hotspot-avatar {
@@ -429,6 +451,23 @@ html, body {
 .check-in-btn.checked {
   background: var(--checked);
   color: #fff;
+}
+
+.uncheck-btn {
+  background: rgba(198, 93, 87, 0.15);
+  color: var(--danger, #c65d57);
+  border: 1px solid rgba(198, 93, 87, 0.3);
+  border-radius: 12px;
+  padding: 14px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: none;
+}
+
+.uncheck-btn.visible {
+  display: block;
 }
 
 .nav-btn {

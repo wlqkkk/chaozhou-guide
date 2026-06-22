@@ -43,9 +43,11 @@
     storySummary: document.getElementById('storySummary'),
     storyText: document.getElementById('storyText'),
     checkInBtn: document.getElementById('checkInBtn'),
+    uncheckBtn: document.getElementById('uncheckBtn'),
     prevBtn: document.getElementById('prevBtn'),
     nextBtn: document.getElementById('nextBtn'),
     progressText: document.getElementById('progressText'),
+    resetBtn: document.getElementById('resetBtn'),
     modeBtn: document.getElementById('modeBtn'),
     modeText: document.querySelector('.mode-text'),
     modeHint: document.getElementById('modeHint'),
@@ -301,6 +303,7 @@
     els.checkInBtn.classList.toggle('checked', checked);
     els.checkInBtn.querySelector('.btn-text').textContent = checked ? '已打卡' : '打卡';
     els.checkInBtn.querySelector('.btn-icon').textContent = checked ? '✓' : '📍';
+    els.uncheckBtn.classList.toggle('visible', checked);
   }
 
   // 更新导航按钮
@@ -323,6 +326,21 @@
     const point = state.points.find(p => p.id === state.currentPointId);
     const alreadyChecked = state.checked.has(state.currentPointId);
 
+    // 如果已打卡，则取消打卡
+    if (alreadyChecked) {
+      state.checked.delete(state.currentPointId);
+      saveChecked();
+      updateCheckInButton();
+      updateProgress();
+      renderHotspots();
+
+      const activeHotspot = document.querySelector(`.hotspot[data-id="${state.currentPointId}"]`);
+      if (activeHotspot) activeHotspot.classList.add('active');
+
+      if (point) showToast(`↩️ 已取消：${point.title}`, '');
+      return;
+    }
+
     state.checked.add(state.currentPointId);
     saveChecked();
     updateCheckInButton();
@@ -334,7 +352,7 @@
     if (activeHotspot) activeHotspot.classList.add('active');
 
     // 首次打卡显示 Toast
-    if (!alreadyChecked && point) {
+    if (point) {
       showToast(`✓ 已打卡：${point.title}`, 'success');
       checkBadges();
     }
@@ -343,6 +361,25 @@
     if (state.checked.size === state.points.length) {
       setTimeout(showCertificate, 800);
     }
+  }
+
+  // 重置全部打卡
+  function resetAllChecked() {
+    if (state.checked.size === 0) {
+      showToast('还没有打卡记录', '');
+      return;
+    }
+
+    // 简单确认
+    if (!confirm(`确定要清除全部 ${state.checked.size} 条打卡记录吗？此操作不可恢复。`)) return;
+
+    state.checked.clear();
+    state.earnedBadges.clear();
+    saveChecked();
+    updateProgress();
+    renderHotspots();
+    closeStorySheet();
+    showToast('🔄 已重置全部打卡记录', 'success');
   }
 
   // 检查徽章
@@ -658,6 +695,7 @@
 
     // 故事卡片按钮
     els.checkInBtn.addEventListener('click', checkIn);
+    els.uncheckBtn.addEventListener('click', checkIn);
     els.prevBtn.addEventListener('click', () => navigatePoint(-1));
     els.nextBtn.addEventListener('click', () => navigatePoint(1));
 
@@ -671,6 +709,9 @@
     // 成果页
     els.progressText.addEventListener('click', showResult);
     els.closeResultModal.addEventListener('click', hideResultModal);
+
+    // 重置打卡
+    els.resetBtn.addEventListener('click', resetAllChecked);
 
     // 徽章弹窗
     els.closeBadgeModal.addEventListener('click', hideBadgeModal);
