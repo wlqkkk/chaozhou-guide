@@ -66,8 +66,11 @@
 
   // 初始化
   function init() {
+    console.log('✅ editor.js 已加载 v2');
     loadData();
+    console.log('📊 已加载', state.points.length, '个故事点');
     setupEventListeners();
+    console.log('🔧 事件监听已绑定');
     setupMapEvents();
     renderCategories();
     renderHotspots();
@@ -225,7 +228,9 @@
   // 保存点
   function savePoint(e) {
     e.preventDefault();
+    console.log('💾 savePoint 被调用');
     const data = readForm();
+    console.log('📝 表单数据:', data);
     if (!data.title) {
       alert('请填写标题');
       return;
@@ -564,7 +569,16 @@
     els.zoomOutBtn.addEventListener('click', () => zoomTo(1 / 1.3));
 
     els.panelForm.addEventListener('submit', savePoint);
-    els.deleteBtn.addEventListener('click', deletePoint);
+    els.deleteBtn.addEventListener('click', () => {
+      console.log('🗑️ deleteBtn 被点击');
+      deletePoint();
+    });
+
+    // 手动点击保存的日志
+    els.saveBtn.addEventListener('click', () => {
+      console.log('🖱️ saveBtn 被点击（通过click事件）');
+      // saveBtn 是 type=submit，会触发表单 submit 事件，不用额外处理
+    });
 
     // 坐标输入变化时实时更新标记
     els.pX.addEventListener('input', updateSelectedHotspotPosition);
