@@ -285,7 +285,7 @@ html, body {
   left: 50%;
   width: 22px;
   height: 22px;
-  transform: translate(-50%, -50%) scale(calc(1 / var(--map-scale)));
+  transform: translate(-50%, -50%);
   border-radius: 50%;
   background: #fff;
   display: flex;
@@ -303,7 +303,7 @@ html, body {
 }
 
 .hotspot.active .hotspot-avatar {
-  transform: translate(-50%, -50%) scale(calc(1.15 / var(--map-scale)));
+  transform: translate(-50%, -50%) scale(1.15);
 }
 
 .hotspot-label {
