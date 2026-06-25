@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#1a1a1a">
   <title>潮州古城有熊酒店 · 故事地图</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="css/style.css?v=2">
+  <link rel="stylesheet" href="css/style.css?v=3">
   <script>
     // 在 app.js 加载前，先把地图居中显示，避免用户看到错位或空白
     document.addEventListener('DOMContentLoaded', function() {
@@ -46,6 +46,9 @@
         <button class="route-btn" id="routeBtn" title="推荐路线">
           <span>🚶</span>
         </button>
+        <button class="voice-settings-btn" id="voiceSettingsBtn" title="语音播报设置">
+          <span id="voiceIcon">🔊</span>
+        </button>
         <div class="progress" id="progressWrap" title="点击查看成果">
           <span id="progressText">0/30</span>
         </div>
@@ -78,7 +81,10 @@
       <div class="sheet-handle"></div>
       <div class="sheet-content">
         <div class="story-header">
-          <span class="story-category" id="storyCategory">分类</span>
+          <div class="story-title-row">
+            <span class="story-category" id="storyCategory">分类</span>
+            <button class="story-voice-btn" id="storyVoiceBtn" title="播报">🔊</button>
+          </div>
           <h2 id="storyTitle">故事标题</h2>
           <span class="story-area" id="storyArea">所在区域</span>
         </div>
@@ -166,6 +172,51 @@
         <h3 id="badgeTitle">获得徽章</h3>
         <p id="badgeDesc">描述</p>
         <button class="start-btn" id="closeBadgeModal">太棒了</button>
+      </div>
+    </div>
+
+    <!-- 语音设置弹窗 -->
+    <div class="modal" id="voiceModal">
+      <div class="modal-content voice-content">
+        <div class="modal-header">
+          <h3>语音播报设置</h3>
+          <button class="close-btn" id="closeVoiceModal">×</button>
+        </div>
+        <div class="voice-body">
+          <div class="voice-option">
+            <label>播报模式</label>
+            <div class="voice-mode-group" id="voiceModeGroup">
+              <button type="button" class="voice-mode-btn" data-mode="off">关闭</button>
+              <button type="button" class="voice-mode-btn" data-mode="click">点击播报</button>
+              <button type="button" class="voice-mode-btn" data-mode="auto">自动播报</button>
+            </div>
+          </div>
+
+          <div class="voice-option" id="voiceSelectWrap">
+            <label for="voiceSelect">播报音色</label>
+            <select id="voiceSelect">
+              <option value="">默认音色</option>
+            </select>
+            <p class="voice-hint">不同手机和浏览器支持的音色数量不同，不支持时会自动使用系统默认。</p>
+          </div>
+
+          <div class="voice-option">
+            <label for="voiceRate">语速 <span id="voiceRateValue">1.0</span></label>
+            <input type="range" id="voiceRate" min="0.5" max="1.5" step="0.1" value="0.9">
+            <div class="voice-rate-labels">
+              <span>慢</span>
+              <span>正常</span>
+              <span>快</span>
+            </div>
+          </div>
+
+          <div class="voice-option">
+            <label for="voicePitch">音调 <span id="voicePitchValue">1.0</span></label>
+            <input type="range" id="voicePitch" min="0.5" max="1.5" step="0.1" value="1.0">
+          </div>
+
+          <button class="voice-test-btn" id="voiceTestBtn">试听效果</button>
+        </div>
       </div>
     </div>
 

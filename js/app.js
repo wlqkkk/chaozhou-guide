@@ -14,6 +14,14 @@
     currentRouteIndex: -1,
     mode: 'explore', // 'explore' | 'guide'
     avatar: '🐱',
+    voice: {
+      mode: 'click', // 'off' | 'click' | 'auto'
+      voiceURI: '',
+      rate: 0.9,
+      pitch: 1.0,
+      userInteracted: false,
+      speaking: false
+    },
     transform: { x: 0, y: 0, scale: 1 },
     minScale: 0.5,
     maxScale: 4,
@@ -42,6 +50,7 @@
     storyArea: document.getElementById('storyArea'),
     storySummary: document.getElementById('storySummary'),
     storyText: document.getElementById('storyText'),
+    storyVoiceBtn: document.getElementById('storyVoiceBtn'),
     checkInBtn: document.getElementById('checkInBtn'),
     uncheckBtn: document.getElementById('uncheckBtn'),
     prevBtn: document.getElementById('prevBtn'),
@@ -55,6 +64,18 @@
     routeModal: document.getElementById('routeModal'),
     routeList: document.getElementById('routeList'),
     closeRouteModal: document.getElementById('closeRouteModal'),
+    voiceSettingsBtn: document.getElementById('voiceSettingsBtn'),
+    voiceIcon: document.getElementById('voiceIcon'),
+    voiceModal: document.getElementById('voiceModal'),
+    closeVoiceModal: document.getElementById('closeVoiceModal'),
+    voiceModeGroup: document.getElementById('voiceModeGroup'),
+    voiceSelect: document.getElementById('voiceSelect'),
+    voiceSelectWrap: document.getElementById('voiceSelectWrap'),
+    voiceRate: document.getElementById('voiceRate'),
+    voiceRateValue: document.getElementById('voiceRateValue'),
+    voicePitch: document.getElementById('voicePitch'),
+    voicePitchValue: document.getElementById('voicePitchValue'),
+    voiceTestBtn: document.getElementById('voiceTestBtn'),
     resultModal: document.getElementById('resultModal'),
     closeResultModal: document.getElementById('closeResultModal'),
     resultCount: document.getElementById('resultCount'),
@@ -84,11 +105,14 @@
   async function init() {
     await loadData();
     loadChecked();
+    loadVoiceSettings();
+    initSpeechSynthesis();
     setupEventListeners();
     setupZoomControls();
     renderHotspots();
     renderAvatarGrid();
     updateProgress();
+    updateVoiceIcon();
 
     // 等待地图图片加载完成后再适配屏幕
     if (els.mapImage.complete && els.mapImage.naturalWidth > 0) {
@@ -227,6 +251,216 @@
     }
   }
 
+  // 加载语音设置
+  function loadVoiceSettings() {
+    try {
+      const saved = localStorage.getItem('chaozhou-voice');
+      if (saved) {
+        const settings = JSON.parse(saved);
+        state.voice.mode = settings.mode || 'click';
+        state.voice.voiceURI = settings.voiceURI || '';
+        state.voice.rate = typeof settings.rate === 'number' ? settings.rate : 0.9;
+        state.voice.pitch = typeof settings.pitch === 'number' ? settings.pitch : 1.0;
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // 保存语音设置
+  function saveVoiceSettings() {
+    try {
+      localStorage.setItem('chaozhou-voice', JSON.stringify({
+        mode: state.voice.mode,
+        voiceURI: state.voice.voiceURI,
+        rate: state.voice.rate,
+        pitch: state.voice.pitch
+      }));
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // 初始化语音合成
+  function initSpeechSynthesis() {
+    if (!('speechSynthesis' in window)) {
+      state.voice.mode = 'off';
+      return;
+    }
+
+    // 某些浏览器需要异步加载语音列表
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      populateVoiceSelect(voices);
+    };
+
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }
+
+  // 填充音色选择器
+  function populateVoiceSelect(voices) {
+    if (!els.voiceSelect) return;
+
+    // 过滤中文语音
+    const zhVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('zh'));
+
+    els.voiceSelect.innerHTML = '';
+
+    // 默认选项
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = '默认音色';
+    els.voiceSelect.appendChild(defaultOption);
+
+    zhVoices.forEach(voice => {
+      const option = document.createElement('option');
+      option.value = voice.voiceURI;
+      option.textContent = `${voice.name} (${voice.lang})`;
+      els.voiceSelect.appendChild(option);
+    });
+
+    // 恢复已保存的选择
+    if (state.voice.voiceURI) {
+      els.voiceSelect.value = state.voice.voiceURI;
+    }
+
+    // 如果没有可选音色，隐藏选择器
+    if (zhVoices.length <= 1) {
+      els.voiceSelectWrap.style.display = 'none';
+    } else {
+      els.voiceSelectWrap.style.display = 'block';
+    }
+  }
+
+  // 获取当前选中的语音
+  function getSelectedVoice() {
+    if (!state.voice.voiceURI) return null;
+    const voices = window.speechSynthesis.getVoices();
+    return voices.find(v => v.voiceURI === state.voice.voiceURI) || null;
+  }
+
+  // 播报文本
+  function speak(text) {
+    if (!('speechSynthesis' in window)) return;
+    if (!text) return;
+
+    // 停止当前播报
+    stopSpeaking();
+
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'zh-CN';
+    utter.rate = state.voice.rate;
+    utter.pitch = state.voice.pitch;
+
+    const voice = getSelectedVoice();
+    if (voice) utter.voice = voice;
+
+    utter.onstart = () => {
+      state.voice.speaking = true;
+      updateVoicePlayButton();
+    };
+
+    utter.onend = () => {
+      state.voice.speaking = false;
+      updateVoicePlayButton();
+    };
+
+    utter.onerror = () => {
+      state.voice.speaking = false;
+      updateVoicePlayButton();
+    };
+
+    window.speechSynthesis.speak(utter);
+  }
+
+  // 停止播报
+  function stopSpeaking() {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    state.voice.speaking = false;
+    updateVoicePlayButton();
+  }
+
+  // 播报当前故事点
+  function speakCurrentPoint() {
+    if (state.voice.mode === 'off') return;
+    if (!state.currentPointId) return;
+
+    const point = state.points.find(p => p.id === state.currentPointId);
+    if (!point) return;
+
+    const text = `${point.title}。${point.summary || ''}`;
+    speak(text);
+  }
+
+  // 切换故事卡片语音按钮状态
+  function updateVoicePlayButton() {
+    if (!els.storyVoiceBtn) return;
+    els.storyVoiceBtn.textContent = state.voice.speaking ? '⏹' : '🔊';
+    els.storyVoiceBtn.title = state.voice.speaking ? '停止播报' : '播报';
+  }
+
+  // 更新顶部语音图标
+  function updateVoiceIcon() {
+    if (!els.voiceIcon) return;
+    if (state.voice.mode === 'off') {
+      els.voiceIcon.textContent = '🔇';
+    } else if (state.voice.mode === 'auto') {
+      els.voiceIcon.textContent = '🔊';
+    } else {
+      els.voiceIcon.textContent = '🔈';
+    }
+  }
+
+  // 显示语音设置弹窗
+  function showVoiceModal() {
+    if (!els.voiceModal) return;
+
+    // 刷新模式按钮状态
+    document.querySelectorAll('.voice-mode-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === state.voice.mode);
+    });
+
+    // 刷新音色选择
+    const voices = window.speechSynthesis.getVoices();
+    populateVoiceSelect(voices);
+
+    // 刷新滑块
+    els.voiceRate.value = state.voice.rate;
+    els.voiceRateValue.textContent = state.voice.rate.toFixed(1);
+    els.voicePitch.value = state.voice.pitch;
+    els.voicePitchValue.textContent = state.voice.pitch.toFixed(1);
+
+    els.voiceModal.classList.add('show');
+  }
+
+  // 隐藏语音设置弹窗
+  function hideVoiceModal() {
+    if (els.voiceModal) els.voiceModal.classList.remove('show');
+  }
+
+  // 设置播报模式
+  function setVoiceMode(mode) {
+    state.voice.mode = mode;
+    saveVoiceSettings();
+    updateVoiceIcon();
+
+    document.querySelectorAll('.voice-mode-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+
+    // 自动模式下，如果当前有选中点且用户已交互过，立即播报
+    if (mode === 'auto' && state.currentPointId && state.voice.userInteracted) {
+      speakCurrentPoint();
+    }
+
+    if (mode === 'off') {
+      stopSpeaking();
+    }
+  }
+
   // 渲染热点
   function renderHotspots() {
     els.hotspotsLayer.innerHTML = '';
@@ -306,11 +540,19 @@
     // 更新打卡按钮
     updateCheckInButton();
 
+    // 更新语音按钮
+    updateVoicePlayButton();
+
     // 更新导航按钮
     updateNavButtons();
 
     // 打开故事卡片
     els.storySheet.classList.add('open');
+
+    // 自动播报
+    if (state.voice.mode === 'auto' && state.voice.userInteracted) {
+      setTimeout(speakCurrentPoint, 300);
+    }
   }
 
   // 更新打卡按钮
@@ -715,6 +957,77 @@
     els.prevBtn.addEventListener('click', () => navigatePoint(-1));
     els.nextBtn.addEventListener('click', () => navigatePoint(1));
 
+    // 语音播报
+    if (els.storyVoiceBtn) {
+      els.storyVoiceBtn.addEventListener('click', () => {
+        state.voice.userInteracted = true;
+        if (state.voice.speaking) {
+          stopSpeaking();
+        } else {
+          speakCurrentPoint();
+        }
+      });
+    }
+
+    if (els.voiceSettingsBtn) {
+      els.voiceSettingsBtn.addEventListener('click', () => {
+        state.voice.userInteracted = true;
+        showVoiceModal();
+      });
+    }
+
+    if (els.closeVoiceModal) {
+      els.closeVoiceModal.addEventListener('click', hideVoiceModal);
+    }
+
+    if (els.voiceModeGroup) {
+      els.voiceModeGroup.addEventListener('click', (e) => {
+        if (e.target.classList.contains('voice-mode-btn')) {
+          state.voice.userInteracted = true;
+          setVoiceMode(e.target.dataset.mode);
+        }
+      });
+    }
+
+    if (els.voiceSelect) {
+      els.voiceSelect.addEventListener('change', () => {
+        state.voice.voiceURI = els.voiceSelect.value;
+        saveVoiceSettings();
+      });
+    }
+
+    if (els.voiceRate) {
+      els.voiceRate.addEventListener('input', () => {
+        state.voice.rate = parseFloat(els.voiceRate.value);
+        els.voiceRateValue.textContent = state.voice.rate.toFixed(1);
+        saveVoiceSettings();
+      });
+    }
+
+    if (els.voicePitch) {
+      els.voicePitch.addEventListener('input', () => {
+        state.voice.pitch = parseFloat(els.voicePitch.value);
+        els.voicePitchValue.textContent = state.voice.pitch.toFixed(1);
+        saveVoiceSettings();
+      });
+    }
+
+    if (els.voiceTestBtn) {
+      els.voiceTestBtn.addEventListener('click', () => {
+        state.voice.userInteracted = true;
+        speak('欢迎来到潮州古城有熊酒店，这是语音播报的试听效果。');
+      });
+    }
+
+    // 记录用户首次交互，解锁自动播报
+    const markInteracted = () => {
+      if (!state.voice.userInteracted) {
+        state.voice.userInteracted = true;
+      }
+    };
+    document.body.addEventListener('click', markInteracted, { once: true });
+    document.body.addEventListener('touchstart', markInteracted, { once: true });
+
     // 模式切换
     els.modeBtn.addEventListener('click', toggleMode);
 
@@ -911,6 +1224,7 @@
   function closeStorySheet() {
     els.storySheet.classList.remove('open');
     document.querySelectorAll('.hotspot').forEach(h => h.classList.remove('active'));
+    stopSpeaking();
   }
 
   // 显示路线弹窗
