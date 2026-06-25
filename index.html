@@ -192,27 +192,14 @@
             </div>
           </div>
 
-          <div class="voice-option" id="voiceSelectWrap">
-            <label for="voiceSelect">播报音色</label>
-            <select id="voiceSelect">
-              <option value="">默认音色</option>
-            </select>
-            <p class="voice-hint">不同手机和浏览器支持的音色数量不同，不支持时会自动使用系统默认。</p>
-          </div>
-
           <div class="voice-option">
-            <label for="voiceRate">语速 <span id="voiceRateValue">1.0</span></label>
-            <input type="range" id="voiceRate" min="0.5" max="1.5" step="0.1" value="0.9">
+            <label for="voiceVolume">音量 <span id="voiceVolumeValue">100%</span></label>
+            <input type="range" id="voiceVolume" min="0" max="1" step="0.05" value="1">
             <div class="voice-rate-labels">
-              <span>慢</span>
-              <span>正常</span>
-              <span>快</span>
+              <span>静音</span>
+              <span>50%</span>
+              <span>最大</span>
             </div>
-          </div>
-
-          <div class="voice-option">
-            <label for="voicePitch">音调 <span id="voicePitchValue">1.0</span></label>
-            <input type="range" id="voicePitch" min="0.5" max="1.5" step="0.1" value="1.0">
           </div>
 
           <button class="voice-test-btn" id="voiceTestBtn">试听效果</button>

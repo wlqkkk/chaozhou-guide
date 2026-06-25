@@ -16,9 +16,7 @@
     avatar: '🐱',
     voice: {
       mode: 'click', // 'off' | 'click' | 'auto'
-      voiceURI: '',
-      rate: 0.9,
-      pitch: 1.0,
+      volume: 1.0,
       userInteracted: false,
       speaking: false
     },
@@ -32,7 +30,8 @@
     containerWidth: 0,
     containerHeight: 0,
     mapWidth: 0,
-    mapHeight: 0
+    mapHeight: 0,
+    currentAudio: null
   };
 
   // DOM 元素
@@ -69,12 +68,8 @@
     voiceModal: document.getElementById('voiceModal'),
     closeVoiceModal: document.getElementById('closeVoiceModal'),
     voiceModeGroup: document.getElementById('voiceModeGroup'),
-    voiceSelect: document.getElementById('voiceSelect'),
-    voiceSelectWrap: document.getElementById('voiceSelectWrap'),
-    voiceRate: document.getElementById('voiceRate'),
-    voiceRateValue: document.getElementById('voiceRateValue'),
-    voicePitch: document.getElementById('voicePitch'),
-    voicePitchValue: document.getElementById('voicePitchValue'),
+    voiceVolume: document.getElementById('voiceVolume'),
+    voiceVolumeValue: document.getElementById('voiceVolumeValue'),
     voiceTestBtn: document.getElementById('voiceTestBtn'),
     resultModal: document.getElementById('resultModal'),
     closeResultModal: document.getElementById('closeResultModal'),
@@ -106,7 +101,7 @@
     await loadData();
     loadChecked();
     loadVoiceSettings();
-    initSpeechSynthesis();
+    initAudio();
     setupEventListeners();
     setupZoomControls();
     renderHotspots();
@@ -258,9 +253,7 @@
       if (saved) {
         const settings = JSON.parse(saved);
         state.voice.mode = settings.mode || 'click';
-        state.voice.voiceURI = settings.voiceURI || '';
-        state.voice.rate = typeof settings.rate === 'number' ? settings.rate : 0.9;
-        state.voice.pitch = typeof settings.pitch === 'number' ? settings.pitch : 1.0;
+        state.voice.volume = typeof settings.volume === 'number' ? settings.volume : 1.0;
       }
     } catch (e) {
       // ignore
@@ -272,136 +265,76 @@
     try {
       localStorage.setItem('chaozhou-voice', JSON.stringify({
         mode: state.voice.mode,
-        voiceURI: state.voice.voiceURI,
-        rate: state.voice.rate,
-        pitch: state.voice.pitch
+        volume: state.voice.volume
       }));
     } catch (e) {
       // ignore
     }
   }
 
-  // 初始化语音合成
-  function initSpeechSynthesis() {
-    if (!('speechSynthesis' in window)) {
-      state.voice.mode = 'off';
-      return;
-    }
-
-    // 某些浏览器需要异步加载语音列表
-    const loadVoices = () => {
-      const voices = window.speechSynthesis.getVoices();
-      populateVoiceSelect(voices);
-    };
-
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
+  // 初始化音频
+  function initAudio() {
+    // 音频播放器用 HTML5 Audio，无需额外初始化
   }
 
-  // 填充音色选择器
-  function populateVoiceSelect(voices) {
-    if (!els.voiceSelect) return;
-
-    // 过滤中文语音
-    const zhVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('zh'));
-
-    // 只保留指定的音色：善怡、美嘉、语舒、Li-Mu
-    const preferredNames = ['善怡', '美嘉', '语舒', 'Li-Mu'];
-    const filteredVoices = zhVoices.filter(v =>
-      preferredNames.some(name => v.name.includes(name))
-    );
-
-    // 如果指定音色都不存在，回退显示所有中文音色
-    const displayVoices = filteredVoices.length > 0 ? filteredVoices : zhVoices;
-
-    els.voiceSelect.innerHTML = '';
-
-    // 默认选项
-    const defaultOption = document.createElement('option');
-    defaultOption.value = '';
-    defaultOption.textContent = '默认音色';
-    els.voiceSelect.appendChild(defaultOption);
-
-    displayVoices.forEach(voice => {
-      const option = document.createElement('option');
-      option.value = voice.voiceURI;
-      option.textContent = voice.name;
-      els.voiceSelect.appendChild(option);
-    });
-
-    // 恢复已保存的选择
-    if (state.voice.voiceURI) {
-      els.voiceSelect.value = state.voice.voiceURI;
-    }
-
-    // 如果没有可选音色，隐藏选择器
-    if (displayVoices.length <= 1) {
-      els.voiceSelectWrap.style.display = 'none';
-    } else {
-      els.voiceSelectWrap.style.display = 'block';
-    }
+  // 创建/获取当前故事点的音频对象
+  function getStoryAudio(pointId) {
+    const audio = new Audio(`audio/${pointId}.mp3`);
+    audio.volume = state.voice.volume;
+    audio.preload = 'metadata';
+    return audio;
   }
 
-  // 获取当前选中的语音
-  function getSelectedVoice() {
-    if (!state.voice.voiceURI) return null;
-    const voices = window.speechSynthesis.getVoices();
-    return voices.find(v => v.voiceURI === state.voice.voiceURI) || null;
-  }
-
-  // 播报文本
-  function speak(text) {
-    if (!('speechSynthesis' in window)) return;
-    if (!text) return;
-
-    // 停止当前播报
-    stopSpeaking();
-
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'zh-CN';
-    utter.rate = state.voice.rate;
-    utter.pitch = state.voice.pitch;
-
-    const voice = getSelectedVoice();
-    if (voice) utter.voice = voice;
-
-    utter.onstart = () => {
-      state.voice.speaking = true;
-      updateVoicePlayButton();
-    };
-
-    utter.onend = () => {
-      state.voice.speaking = false;
-      updateVoicePlayButton();
-    };
-
-    utter.onerror = () => {
-      state.voice.speaking = false;
-      updateVoicePlayButton();
-    };
-
-    window.speechSynthesis.speak(utter);
-  }
-
-  // 停止播报
-  function stopSpeaking() {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    state.voice.speaking = false;
-    updateVoicePlayButton();
-  }
-
-  // 播报当前故事点
-  function speakCurrentPoint() {
+  // 播放当前故事点音频
+  function playCurrentStoryAudio() {
     if (state.voice.mode === 'off') return;
     if (!state.currentPointId) return;
 
     const point = state.points.find(p => p.id === state.currentPointId);
     if (!point) return;
 
-    const text = `${point.title}。${point.summary || ''}。${point.story || ''}`;
-    speak(text);
+    stopAudio();
+
+    const audio = getStoryAudio(point.id);
+    state.currentAudio = audio;
+
+    audio.addEventListener('play', () => {
+      state.voice.speaking = true;
+      updateVoicePlayButton();
+    });
+
+    audio.addEventListener('ended', () => {
+      state.voice.speaking = false;
+      updateVoicePlayButton();
+    });
+
+    audio.addEventListener('pause', () => {
+      state.voice.speaking = false;
+      updateVoicePlayButton();
+    });
+
+    audio.addEventListener('error', () => {
+      state.voice.speaking = false;
+      updateVoicePlayButton();
+      console.warn('音频加载失败:', point.id);
+    });
+
+    audio.play().catch(err => {
+      state.voice.speaking = false;
+      updateVoicePlayButton();
+      console.warn('音频播放失败:', err);
+    });
+  }
+
+  // 停止音频
+  function stopAudio() {
+    if (state.currentAudio) {
+      state.currentAudio.pause();
+      state.currentAudio.currentTime = 0;
+      state.currentAudio = null;
+    }
+    state.voice.speaking = false;
+    updateVoicePlayButton();
   }
 
   // 切换故事卡片语音按钮状态
@@ -432,15 +365,11 @@
       btn.classList.toggle('active', btn.dataset.mode === state.voice.mode);
     });
 
-    // 刷新音色选择
-    const voices = window.speechSynthesis.getVoices();
-    populateVoiceSelect(voices);
-
-    // 刷新滑块
-    els.voiceRate.value = state.voice.rate;
-    els.voiceRateValue.textContent = state.voice.rate.toFixed(1);
-    els.voicePitch.value = state.voice.pitch;
-    els.voicePitchValue.textContent = state.voice.pitch.toFixed(1);
+    // 刷新音量滑块
+    if (els.voiceVolume) {
+      els.voiceVolume.value = state.voice.volume;
+      els.voiceVolumeValue.textContent = Math.round(state.voice.volume * 100) + '%';
+    }
 
     els.voiceModal.classList.add('show');
   }
@@ -460,14 +389,52 @@
       btn.classList.toggle('active', btn.dataset.mode === mode);
     });
 
-    // 自动模式下，如果当前有选中点且用户已交互过，立即播报
     if (mode === 'auto' && state.currentPointId && state.voice.userInteracted) {
-      speakCurrentPoint();
+      playCurrentStoryAudio();
     }
 
     if (mode === 'off') {
-      stopSpeaking();
+      stopAudio();
     }
+  }
+
+  // 设置音量
+  function setVoiceVolume(volume) {
+    state.voice.volume = volume;
+    if (state.currentAudio) {
+      state.currentAudio.volume = volume;
+    }
+    saveVoiceSettings();
+  }
+
+  // 播放试听音频
+  function playTestAudio() {
+    stopAudio();
+    const audio = new Audio('audio/p01.mp3');
+    audio.volume = state.voice.volume;
+    state.currentAudio = audio;
+
+    audio.addEventListener('ended', () => {
+      state.voice.speaking = false;
+      updateVoicePlayButton();
+      state.currentAudio = null;
+    });
+
+    audio.addEventListener('error', () => {
+      state.voice.speaking = false;
+      updateVoicePlayButton();
+      state.currentAudio = null;
+      showToast('试听音频加载失败', '');
+    });
+
+    audio.play().then(() => {
+      state.voice.speaking = true;
+      updateVoicePlayButton();
+    }).catch(err => {
+      state.voice.speaking = false;
+      updateVoicePlayButton();
+      console.warn('试听播放失败:', err);
+    });
   }
 
   // 渲染热点
@@ -564,7 +531,7 @@
 
     // 自动播报
     if (state.voice.mode === 'auto' && state.voice.userInteracted) {
-      setTimeout(speakCurrentPoint, 300);
+      setTimeout(playCurrentStoryAudio, 300);
     }
   }
 
@@ -975,9 +942,9 @@
       els.storyVoiceBtn.addEventListener('click', () => {
         state.voice.userInteracted = true;
         if (state.voice.speaking) {
-          stopSpeaking();
+          stopAudio();
         } else {
-          speakCurrentPoint();
+          playCurrentStoryAudio();
         }
       });
     }
@@ -1002,33 +969,20 @@
       });
     }
 
-    if (els.voiceSelect) {
-      els.voiceSelect.addEventListener('change', () => {
-        state.voice.voiceURI = els.voiceSelect.value;
-        saveVoiceSettings();
-      });
-    }
-
-    if (els.voiceRate) {
-      els.voiceRate.addEventListener('input', () => {
-        state.voice.rate = parseFloat(els.voiceRate.value);
-        els.voiceRateValue.textContent = state.voice.rate.toFixed(1);
-        saveVoiceSettings();
-      });
-    }
-
-    if (els.voicePitch) {
-      els.voicePitch.addEventListener('input', () => {
-        state.voice.pitch = parseFloat(els.voicePitch.value);
-        els.voicePitchValue.textContent = state.voice.pitch.toFixed(1);
-        saveVoiceSettings();
+    if (els.voiceVolume) {
+      els.voiceVolume.addEventListener('input', () => {
+        const volume = parseFloat(els.voiceVolume.value);
+        setVoiceVolume(volume);
+        if (els.voiceVolumeValue) {
+          els.voiceVolumeValue.textContent = Math.round(volume * 100) + '%';
+        }
       });
     }
 
     if (els.voiceTestBtn) {
       els.voiceTestBtn.addEventListener('click', () => {
         state.voice.userInteracted = true;
-        speak('欢迎来到潮州古城有熊酒店，这是语音播报的试听效果。');
+        playTestAudio();
       });
     }
 
@@ -1238,7 +1192,7 @@
   function closeStorySheet() {
     els.storySheet.classList.remove('open');
     document.querySelectorAll('.hotspot').forEach(h => h.classList.remove('active'));
-    stopSpeaking();
+    stopAudio();
   }
 
   // 显示路线弹窗

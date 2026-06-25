@@ -1,4 +1,4 @@
-const CACHE_NAME = 'chaozhou-guide-v4';
+const CACHE_NAME = 'chaozhou-guide-v5';
 const ASSETS = [
   './',
   './index.html',
@@ -7,7 +7,37 @@ const ASSETS = [
   './data/points.json',
   './data/points.js',
   './images/floor-plan-styled-1200.jpg',
-  './images/visit-map.jpg'
+  './images/visit-map.jpg',
+  './audio/p01.mp3',
+  './audio/p02.mp3',
+  './audio/p03.mp3',
+  './audio/p04.mp3',
+  './audio/p05.mp3',
+  './audio/p06.mp3',
+  './audio/p07.mp3',
+  './audio/p08.mp3',
+  './audio/p09.mp3',
+  './audio/p10.mp3',
+  './audio/p11.mp3',
+  './audio/p12.mp3',
+  './audio/p13.mp3',
+  './audio/p14.mp3',
+  './audio/p15.mp3',
+  './audio/p16.mp3',
+  './audio/p17.mp3',
+  './audio/p18.mp3',
+  './audio/p19.mp3',
+  './audio/p20.mp3',
+  './audio/p21.mp3',
+  './audio/p22.mp3',
+  './audio/p23.mp3',
+  './audio/p24.mp3',
+  './audio/p25.mp3',
+  './audio/p26.mp3',
+  './audio/p27.mp3',
+  './audio/p28.mp3',
+  './audio/p29.mp3',
+  './audio/p30.mp3'
 ];
 
 self.addEventListener('install', (event) => {
