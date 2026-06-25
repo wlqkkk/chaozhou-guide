@@ -497,6 +497,7 @@
 
       hotspot.addEventListener('click', (e) => {
         e.stopPropagation();
+        state.voice.userInteracted = true;
         selectPoint(point.id);
       });
 
@@ -1191,6 +1192,7 @@
     }
 
     if (nextId) {
+      state.voice.userInteracted = true;
       selectPoint(nextId);
     }
   }
@@ -1264,6 +1266,7 @@
 
     const route = state.routes.find(r => r.id === routeId);
     if (route && route.points.length > 0) {
+      state.voice.userInteracted = true;
       selectPoint(route.points[0]);
     }
   }
@@ -1301,6 +1304,7 @@
         <span>${point.title}</span>
       `;
       div.addEventListener('click', () => {
+        state.voice.userInteracted = true;
         hideResultModal();
         selectPoint(point.id);
       });
