@@ -10,9 +10,6 @@
     checked: new Set(),
     earnedBadges: new Set(),
     currentPointId: null,
-    currentRouteId: null,
-    currentRouteIndex: -1,
-    mode: 'explore', // 'explore' | 'guide'
     avatar: '🐱',
     voice: {
       mode: 'click', // 'off' | 'click' | 'auto'
@@ -56,13 +53,6 @@
     nextBtn: document.getElementById('nextBtn'),
     progressText: document.getElementById('progressText'),
     resetBtn: document.getElementById('resetBtn'),
-    modeBtn: document.getElementById('modeBtn'),
-    modeText: document.querySelector('.mode-text'),
-    modeHint: document.getElementById('modeHint'),
-    routeBtn: document.getElementById('routeBtn'),
-    routeModal: document.getElementById('routeModal'),
-    routeList: document.getElementById('routeList'),
-    closeRouteModal: document.getElementById('closeRouteModal'),
     voiceSettingsBtn: document.getElementById('voiceSettingsBtn'),
     voiceIcon: document.getElementById('voiceIcon'),
     voiceModal: document.getElementById('voiceModal'),
@@ -142,7 +132,6 @@
       setTimeout(() => {
         updateDimensions();
         fitMapToScreen();
-        showModeHint();
       }, 100);
     }
 
@@ -546,16 +535,9 @@
 
   // 更新导航按钮
   function updateNavButtons() {
-    if (state.mode === 'guide' && state.currentRouteId) {
-      const route = state.routes.find(r => r.id === state.currentRouteId);
-      const index = route.points.indexOf(state.currentPointId);
-      els.prevBtn.disabled = index <= 0;
-      els.nextBtn.disabled = index >= route.points.length - 1;
-    } else {
-      const index = state.points.findIndex(p => p.id === state.currentPointId);
-      els.prevBtn.disabled = index <= 0;
-      els.nextBtn.disabled = index >= state.points.length - 1;
-    }
+    const index = state.points.findIndex(p => p.id === state.currentPointId);
+    els.prevBtn.disabled = index <= 0;
+    els.nextBtn.disabled = index >= state.points.length - 1;
   }
 
   // 打卡
@@ -995,13 +977,6 @@
     document.body.addEventListener('click', markInteracted, { once: true });
     document.body.addEventListener('touchstart', markInteracted, { once: true });
 
-    // 模式切换
-    els.modeBtn.addEventListener('click', toggleMode);
-
-    // 路线选择
-    els.routeBtn.addEventListener('click', showRouteModal);
-    els.closeRouteModal.addEventListener('click', hideRouteModal);
-
     // 成果页
     els.progressText.addEventListener('click', showResult);
     els.closeResultModal.addEventListener('click', hideResultModal);
@@ -1142,19 +1117,10 @@
   // 导航到上一个/下一个
   function navigatePoint(direction) {
     let nextId;
-    if (state.mode === 'guide' && state.currentRouteId) {
-      const route = state.routes.find(r => r.id === state.currentRouteId);
-      const currentIndex = route.points.indexOf(state.currentPointId);
-      const nextIndex = currentIndex + direction;
-      if (nextIndex >= 0 && nextIndex < route.points.length) {
-        nextId = route.points[nextIndex];
-      }
-    } else {
-      const currentIndex = state.points.findIndex(p => p.id === state.currentPointId);
-      const nextIndex = currentIndex + direction;
-      if (nextIndex >= 0 && nextIndex < state.points.length) {
-        nextId = state.points[nextIndex].id;
-      }
+    const currentIndex = state.points.findIndex(p => p.id === state.currentPointId);
+    const nextIndex = currentIndex + direction;
+    if (nextIndex >= 0 && nextIndex < state.points.length) {
+      nextId = state.points[nextIndex].id;
     }
 
     if (nextId) {
@@ -1163,78 +1129,11 @@
     }
   }
 
-  // 切换模式
-  function toggleMode() {
-    state.mode = state.mode === 'explore' ? 'guide' : 'explore';
-    if (state.mode === 'guide') {
-      els.modeText.textContent = '导览模式';
-      els.modeBtn.querySelector('.mode-icon').textContent = '🎧';
-      showRouteModal();
-    } else {
-      els.modeText.textContent = '探索模式';
-      els.modeBtn.querySelector('.mode-icon').textContent = '🗺️';
-      state.currentRouteId = null;
-      state.currentRouteIndex = -1;
-    }
-    showModeHint();
-  }
-
-  // 显示模式提示
-  function showModeHint() {
-    els.modeHint.textContent = state.mode === 'explore'
-      ? '探索模式：自由浏览地图上的故事点'
-      : '导览模式：按推荐路线逐个点讲解';
-    els.modeHint.classList.add('show');
-    setTimeout(() => els.modeHint.classList.remove('show'), 2500);
-  }
-
   // 关闭故事卡片
   function closeStorySheet() {
     els.storySheet.classList.remove('open');
     document.querySelectorAll('.hotspot').forEach(h => h.classList.remove('active'));
     stopAudio();
-  }
-
-  // 显示路线弹窗
-  function showRouteModal() {
-    renderRouteList();
-    els.routeModal.classList.add('show');
-  }
-
-  // 隐藏路线弹窗
-  function hideRouteModal() {
-    els.routeModal.classList.remove('show');
-  }
-
-  // 渲染路线列表
-  function renderRouteList() {
-    els.routeList.innerHTML = '';
-    state.routes.forEach(route => {
-      const item = document.createElement('div');
-      item.className = 'route-item';
-      item.innerHTML = `
-        <h4>${route.name}</h4>
-        <p>${route.description} · 共 ${route.points.length} 个点</p>
-      `;
-      item.addEventListener('click', () => startRoute(route.id));
-      els.routeList.appendChild(item);
-    });
-  }
-
-  // 开始路线
-  function startRoute(routeId) {
-    state.mode = 'guide';
-    state.currentRouteId = routeId;
-    els.modeText.textContent = '导览模式';
-    els.modeBtn.querySelector('.mode-icon').textContent = '🎧';
-    hideRouteModal();
-    showModeHint();
-
-    const route = state.routes.find(r => r.id === routeId);
-    if (route && route.points.length > 0) {
-      state.voice.userInteracted = true;
-      selectPoint(route.points[0]);
-    }
   }
 
   // 显示成果页

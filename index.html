@@ -39,13 +39,6 @@
         <span class="subtitle">故事地图</span>
       </div>
       <div class="top-actions">
-        <button class="mode-btn" id="modeBtn" title="切换模式">
-          <span class="mode-icon">🗺️</span>
-          <span class="mode-text">探索模式</span>
-        </button>
-        <button class="route-btn" id="routeBtn" title="推荐路线">
-          <span>🚶</span>
-        </button>
         <button class="voice-settings-btn" id="voiceSettingsBtn" title="语音播报设置">
           <span id="voiceIcon">🔊</span>
         </button>
@@ -55,11 +48,6 @@
         <button class="reset-btn" id="resetBtn" title="重置全部打卡记录">🔄</button>
       </div>
     </header>
-
-    <!-- 模式提示 -->
-    <div class="mode-hint" id="modeHint">
-      探索模式：自由浏览地图上的故事点
-    </div>
 
     <!-- 地图容器 -->
     <main class="map-container" id="mapContainer">
@@ -101,17 +89,6 @@
           <button class="nav-btn" id="prevBtn">上一个</button>
           <button class="nav-btn" id="nextBtn">下一个</button>
         </div>
-      </div>
-    </div>
-
-    <!-- 路线选择弹窗 -->
-    <div class="modal" id="routeModal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>选择导览路线</h3>
-          <button class="close-btn" id="closeRouteModal">×</button>
-        </div>
-        <div class="route-list" id="routeList"></div>
       </div>
     </div>
 
