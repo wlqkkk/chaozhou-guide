@@ -325,7 +325,7 @@
     displayVoices.forEach(voice => {
       const option = document.createElement('option');
       option.value = voice.voiceURI;
-      option.textContent = `${voice.name} (${voice.lang})`;
+      option.textContent = voice.name;
       els.voiceSelect.appendChild(option);
     });
 
