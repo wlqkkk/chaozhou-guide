@@ -859,6 +859,62 @@ html, body {
   transform: scale(0.97);
 }
 
+/* 小屏幕手机优化（如微信内置浏览器） */
+@media (max-width: 400px) {
+  .top-bar {
+    padding: 8px 12px;
+    padding-top: max(8px, env(safe-area-inset-top));
+  }
+
+  .hotel-info h1 {
+    font-size: 15px;
+    letter-spacing: 0;
+  }
+
+  .hotel-info .subtitle {
+    display: none;
+  }
+
+  .top-actions {
+    gap: 6px;
+  }
+
+  .top-actions button {
+    padding: 6px 8px;
+    font-size: 12px;
+    gap: 4px;
+    border-radius: 16px;
+  }
+
+  .mode-btn .mode-text {
+    display: none;
+  }
+
+  .mode-btn .mode-icon {
+    margin: 0;
+  }
+
+  .voice-settings-btn {
+    padding: 6px 8px;
+    font-size: 14px;
+  }
+
+  .route-btn {
+    padding: 6px 8px;
+    font-size: 14px;
+  }
+
+  .progress {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .reset-btn {
+    padding: 6px 8px;
+    font-size: 14px;
+  }
+}
+
 /* 横屏优化 */
 @media (orientation: landscape) {
   .story-sheet {
