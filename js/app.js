@@ -305,6 +305,15 @@
     // 过滤中文语音
     const zhVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('zh'));
 
+    // 只保留指定的音色：善怡、美嘉、语舒、Li-Mu
+    const preferredNames = ['善怡', '美嘉', '语舒', 'Li-Mu'];
+    const filteredVoices = zhVoices.filter(v =>
+      preferredNames.some(name => v.name.includes(name))
+    );
+
+    // 如果指定音色都不存在，回退显示所有中文音色
+    const displayVoices = filteredVoices.length > 0 ? filteredVoices : zhVoices;
+
     els.voiceSelect.innerHTML = '';
 
     // 默认选项
@@ -313,7 +322,7 @@
     defaultOption.textContent = '默认音色';
     els.voiceSelect.appendChild(defaultOption);
 
-    zhVoices.forEach(voice => {
+    displayVoices.forEach(voice => {
       const option = document.createElement('option');
       option.value = voice.voiceURI;
       option.textContent = `${voice.name} (${voice.lang})`;
@@ -326,7 +335,7 @@
     }
 
     // 如果没有可选音色，隐藏选择器
-    if (zhVoices.length <= 1) {
+    if (displayVoices.length <= 1) {
       els.voiceSelectWrap.style.display = 'none';
     } else {
       els.voiceSelectWrap.style.display = 'block';
