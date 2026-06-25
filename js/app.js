@@ -501,7 +501,7 @@
     state.currentPointId = id;
 
     // 切换点时先停止当前播报
-    stopSpeaking();
+    stopAudio();
 
     // 更新热点样式
     document.querySelectorAll('.hotspot').forEach(h => h.classList.remove('active'));
