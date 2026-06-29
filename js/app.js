@@ -48,7 +48,6 @@
     storyText: document.getElementById('storyText'),
     storyVoiceBtn: document.getElementById('storyVoiceBtn'),
     checkInBtn: document.getElementById('checkInBtn'),
-    uncheckBtn: document.getElementById('uncheckBtn'),
     prevBtn: document.getElementById('prevBtn'),
     nextBtn: document.getElementById('nextBtn'),
     progressText: document.getElementById('progressText'),
@@ -530,7 +529,6 @@
     els.checkInBtn.classList.toggle('checked', checked);
     els.checkInBtn.querySelector('.btn-text').textContent = checked ? '已打卡' : '打卡';
     els.checkInBtn.querySelector('.btn-icon').textContent = checked ? '✓' : '📍';
-    els.uncheckBtn.classList.toggle('visible', checked);
   }
 
   // 更新导航按钮
@@ -915,7 +913,6 @@
 
     // 故事卡片按钮
     els.checkInBtn.addEventListener('click', checkIn);
-    els.uncheckBtn.addEventListener('click', checkIn);
     els.prevBtn.addEventListener('click', () => navigatePoint(-1));
     els.nextBtn.addEventListener('click', () => navigatePoint(1));
 
