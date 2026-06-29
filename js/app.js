@@ -999,6 +999,9 @@
       }
     });
 
+    // 故事卡片下滑关闭
+    setupSheetSwipe();
+
     // 窗口大小变化
     window.addEventListener('resize', () => {
       updateDimensions();
@@ -1134,6 +1137,46 @@
     els.storySheet.classList.remove('open');
     document.querySelectorAll('.hotspot').forEach(h => h.classList.remove('active'));
     stopAudio();
+  }
+
+
+  // 故事卡片下滑关闭
+  function setupSheetSwipe() {
+    const handle = document.querySelector('.sheet-handle');
+    if (!handle) return;
+
+    let startY = 0;
+    let currentY = 0;
+    let isDragging = false;
+
+    handle.addEventListener('touchstart', (e) => {
+      startY = e.touches[0].clientY;
+      currentY = startY;
+      isDragging = true;
+      els.storySheet.style.transition = 'none';
+    }, { passive: true });
+
+    handle.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      currentY = e.touches[0].clientY;
+      const delta = currentY - startY;
+      if (delta > 0 && !window.matchMedia('(orientation: landscape)').matches) {
+        els.storySheet.style.transform = `translateY(${delta}px)`;
+      }
+    }, { passive: true });
+
+    handle.addEventListener('touchend', () => {
+      if (!isDragging) return;
+      isDragging = false;
+      els.storySheet.style.transition = '';
+      const delta = currentY - startY;
+      if (delta > 60) {
+        closeStorySheet();
+      } else {
+        els.storySheet.classList.add('open');
+      }
+      els.storySheet.style.transform = '';
+    });
   }
 
   // 显示成果页
