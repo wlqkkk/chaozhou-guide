@@ -1,4 +1,4 @@
-const CACHE_NAME = 'chaozhou-guide-v5';
+const CACHE_NAME = 'chaozhou-guide-v6';
 const ASSETS = [
   './',
   './index.html',

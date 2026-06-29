@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 开发酒店内部导游地图</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #1a1a1a;
+      --text-secondary: #555555;
+      --accent: #c62828;
+      --accent-light: #ffebee;
+      --border: #e0e0e0;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+
+    .slides {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    .slide {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 80px 100px;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.35s ease, visibility 0.35s ease;
+    }
+
+    .slide.active { opacity: 1; visibility: visible; }
+
+    .page-num {
+      position: absolute;
+      bottom: 36px;
+      right: 48px;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .label {
+      font-size: 13px;
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: 52px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 16px;
+      letter-spacing: 1px;
+      text-align: center;
+    }
+
+    h2 {
+      font-size: 42px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 36px;
+      text-align: center;
+    }
+
+    .lead {
+      font-size: 24px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      max-width: 780px;
+      text-align: center;
+    }
+
+    .insight {
+      font-size: 28px;
+      line-height: 1.5;
+      color: var(--text);
+      max-width: 880px;
+      text-align: center;
+      font-weight: 500;
+    }
+
+    .divider {
+      width: 50px;
+      height: 4px;
+      background: var(--accent);
+      margin: 28px auto;
+    }
+
+    .tech-list {
+      width: 100%;
+      max-width: 900px;
+      margin-top: 10px;
+    }
+
+    .tech-item {
+      display: flex;
+      align-items: baseline;
+      gap: 20px;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tech-item:last-child { border-bottom: none; }
+
+    .tech-name {
+      flex-shrink: 0;
+      width: 180px;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .tech-detail {
+      font-size: 18px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+      max-width: 1000px;
+      width: 100%;
+    }
+
+    .card {
+      background: var(--accent-light);
+      border-radius: 8px;
+      padding: 28px 22px;
+      text-align: center;
+    }
+
+    .card h3 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    .card p {
+      font-size: 15px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .big-point {
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--accent);
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .bottom-hint {
+      position: absolute;
+      bottom: 36px;
+      left: 48px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .highlight-box {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 24px 32px;
+      max-width: 800px;
+      margin-top: 24px;
+    }
+
+    .highlight-box p {
+      font-size: 20px;
+      color: var(--text);
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="slides">
+
+    <div class="slide active">
+      <div class="label">产品经理内部分享 · 5 min</div>
+      <h1>AI 开发酒店内部导游地图</h1>
+      <p class="lead">从潮州古城有熊酒店项目，看技术选型与 AI 落地边界</p>
+      <div class="bottom-hint">按 → 键继续</div>
+    </div>
+
+    <div class="slide">
+      <div class="label">判断 1</div>
+      <h2>酒店导览不需要 App</h2>
+      <div class="divider"></div>
+      <p class="insight">
+        一个 H5 网页 + 二维码就够了。
+      </p>
+      <div class="tech-list">
+        <div class="tech-item">
+          <div class="tech-name">零下载</div>
+          <div class="tech-detail">客人扫码即用，不用去应用商店，不用注册登录。</div>
+        </div>
+        <div class="tech-item">
+          <div class="tech-name">零审核</div>
+          <div class="tech-detail">不需要小程序审核，改完推代码就生效。</div>
+        </div>
+        <div class="tech-item">
+          <div class="tech-name">零服务器成本</div>
+          <div class="tech-detail">GitHub Pages 免费托管，一年费用为 0。</div>
+        </div>
+      </div>
+      <div class="highlight-box">
+        <p><strong>启发：</strong>低频使用的场景，别用 App。H5 的打开成本对客人最低，对酒店也最低。</p>
+      </div>
+      <div class="page-num">02 / 05</div>
+    </div>
+
+    <div class="slide">
+      <div class="label">判断 2</div>
+      <h2>技术栈要压到最轻</h2>
+      <div class="divider"></div>
+      <p class="insight">
+        不需要后端、不需要数据库、不需要地图 SDK。
+      </p>
+      <div class="tech-list">
+        <div class="tech-item">
+          <div class="tech-name">前端</div>
+          <div class="tech-detail">原生 HTML/CSS/JS，没有 React/Vue 框架，加载快，维护轻。</div>
+        </div>
+        <div class="tech-item">
+          <div class="tech-name">地图</div>
+          <div class="tech-detail">自定义平面图 + CSS transform。高德百度没有酒店室内地图。</div>
+        </div>
+        <div class="tech-item">
+          <div class="tech-name">音频</div>
+          <div class="tech-detail">预生成 MP3，不是实时 TTS。微信内置浏览器不支持实时语音合成。</div>
+        </div>
+        <div class="tech-item">
+          <div class="tech-name">数据</div>
+          <div class="tech-detail">静态 JSON + 浏览器 localStorage。客人打卡只存在自己手机里。</div>
+        </div>
+      </div>
+      <div class="highlight-box">
+        <p><strong>启发：</strong>不要为"未来可能规模化"提前加复杂度。MVP 阶段，能少一个依赖就少一个。</p>
+      </div>
+      <div class="page-num">03 / 05</div>
+    </div>
+
+    <div class="slide">
+      <div class="label">判断 3</div>
+      <h2>AI 有三件事很强，但不是万能</h2>
+      <div class="divider"></div>
+      <div class="grid-3">
+        <div class="card">
+          <h3>批量生成语音</h3>
+          <p>30 个故事点音频，edge-tts 一键生成。改文案可重跑，省去录制档期。</p>
+        </div>
+        <div class="card">
+          <h3>结构化内容</h3>
+          <p>把 Word、PPT、口述资料拆成统一字段：标题、摘要、故事、坐标、分类。</p>
+        </div>
+        <div class="card">
+          <h3>加速试错</h3>
+          <p>从静态页面到语音、打卡、证书，一周迭代 3-4 版，降低决策风险。</p>
+        </div>
+      </div>
+      <div class="highlight-box">
+        <p><strong>边界：</strong>AI 不会自动知道哪把椅子、哪盏灯有故事。内容源头必须是人，AI 只是加速器。</p>
+      </div>
+      <div class="page-num">04 / 05</div>
+    </div>
+
+    <div class="slide">
+      <div class="label">建议</div>
+      <h2>常熟有熊：先验证，再放大</h2>
+      <div class="divider"></div>
+      <div class="big-point">5-8 个核心点位 → H5 MVP → 真实客人反馈</div>
+      <div class="tech-list">
+        <div class="tech-item">
+          <div class="tech-name">第一步</div>
+          <div class="tech-detail">选大堂、庭院、餐厅、特色客房等 5-8 个点位，配平面图 + 语音 + 打卡。</div>
+        </div>
+        <div class="tech-item">
+          <div class="tech-name">第二步</div>
+          <div class="tech-detail">在前台、电梯、客房放二维码，跑 2 周数据：多少人扫、听完几个点、愿不愿意分享。</div>
+        </div>
+        <div class="tech-item">
+          <div class="tech-name">第三步</div>
+          <div class="tech-detail">验证通过再补全点位、换真人录音、上后端和多酒店品牌化。</div>
+        </div>
+      </div>
+      <div class="highlight-box">
+        <p><strong>启发：</strong>最便宜的验证方式成本几乎为零。确认客人真的愿意听后，再决定要不要规模化投入。</p>
+      </div>
+      <div class="page-num">05 / 05</div>
+    </div>
+
+  </div>
+
+  <script>
+    const slides = document.querySelectorAll('.slide');
+    let current = 0;
+
+    function showSlide(index) {
+      slides.forEach((slide, i) => slide.classList.toggle('active', i === index));
+    }
+
+    function nextSlide() {
+      if (current < slides.length - 1) { current++; showSlide(current); }
+    }
+
+    function prevSlide() {
+      if (current > 0) { current--; showSlide(current); }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextSlide(); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); prevSlide(); }
+      else if (e.key === 'Escape' && document.fullscreenElement) { document.exitFullscreen(); }
+      else if (e.key === 'f' || e.key === 'F') { document.documentElement.requestFullscreen(); }
+    });
+
+    document.addEventListener('click', () => nextSlide());
+  </script>
+</body>
+</html>
