@@ -1184,11 +1184,13 @@
     els.resultModal.classList.remove('show');
   }
 
-  // 注册 Service Worker
+  // 注销旧的 Service Worker，避免缓存导致数据不更新
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch((err) => {
-        console.error('Service Worker 注册失败:', err);
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((reg) => reg.unregister());
+      }).catch((err) => {
+        console.error('Service Worker 注销失败:', err);
       });
     });
   }
